@@ -1,10 +1,12 @@
 package com.ats.apple
 
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
+import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
@@ -27,13 +29,16 @@ import org.eazegraph.lib.models.ValueLineSeries
 class DeviceDetailsActivity : AppCompatActivity() {
 
     private var m_bluetoothAdapter: BluetoothAdapter? = null
-    private val SCAN_PERIOD: Long = 60000
+    private val SCAN_PERIOD: Long = 15000
     private var scanning = false
     private val handler = Handler()
     private val scan_list : ArrayList<ScanResult> = ArrayList()
     private var address = ""
     private var name = ""
-
+    private var chart:ValueLineChart?=null
+    private var mGatt: BluetoothGatt? = null
+    private val devfilters: MutableList<ScanFilter> = ArrayList()
+    private var rssi = ""
 
 
 
@@ -45,15 +50,20 @@ class DeviceDetailsActivity : AppCompatActivity() {
         val bundle = intent.extras
         address = bundle!!.getString("address")!!
         name = bundle.getString("name")!!
-        val rssi = bundle.getString("rssi")
+        rssi = bundle.getString("rssi")!!
         val uuids = bundle.getString("uuids")
         val serialNumber = bundle.getString("serialNumber")
 
+        chart = findViewById(R.id.chart1)
+
+        val rssi1 = findViewById<TextView>(R.id.rssiTxt)
+
+        rssi1.text = rssi
+        chart!!.startAnimation()
         m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         setupUI(address,name)
 
         scanLeDevice()
-        // start scan get results & if bundle address = address of one of results get its rssi
     }
 
     private fun setupUI(address: String?, name: String?) {
@@ -93,16 +103,19 @@ class DeviceDetailsActivity : AppCompatActivity() {
 //                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
 //                            Toast.LENGTH_SHORT
 //                        ).show()
-//                        Toast.makeText(this@ListActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@DeviceDetailsActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
                         Log.i("ScanListLA","Found: " + scan_list.size.toString())
+
+                    }else{
+                        Toast.makeText(this@DeviceDetailsActivity,"Empty", Toast.LENGTH_SHORT).show()
 
                     }
                 }, SCAN_PERIOD)
                 scanning = true
-                val sett = ScanSettings.MATCH_MODE_STICKY
+                val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
                 val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
                 m_bluetoothAdapter!!.bluetoothLeScanner.startScan(
-                    DeviceManager.scanFilter,
+                    devfilters,
                     settBuilder,
                     lleScanCallback
                 )
@@ -129,19 +142,18 @@ class DeviceDetailsActivity : AppCompatActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             GlobalScope.launch(Dispatchers.Main) {
-                checkType(result!!)
 
                 Toast.makeText(this@DeviceDetailsActivity,"Fired", Toast.LENGTH_SHORT).show()
 
-
                 val res = result
-                val btDevice = res.device
+                val btDevice = res!!.device
                 val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
+                // start scan get results callback & if bundle address = address of one of results get its rssi
                 if (btDevice.address == address){
                     Toast.makeText(this@DeviceDetailsActivity,"Device Found", Toast.LENGTH_SHORT).show()
+                    checkType(result)
 
                     val rssi = findViewById<TextView>(R.id.rssiTxt)
-                    val chart = findViewById<ValueLineChart>(R.id.chart1)
 
                     val series = ValueLineSeries()
                     series.color = -0xa9480f
@@ -159,8 +171,7 @@ class DeviceDetailsActivity : AppCompatActivity() {
                     series.addPoint(ValueLinePoint("Nov", res.rssi.toFloat()))
                     series.addPoint(ValueLinePoint("Dec", res.rssi.toFloat()))
 
-                    chart.addSeries(series)
-                    chart.startAnimation()
+                    chart?.addSeries(series)
 //                    chart.data = res.rssi
                     rssi.text = res.rssi.toString()
                 }
@@ -198,6 +209,69 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
     }
 
+    private fun scanFilters(FilterCheck: String){
+        val APbluetoothFilter: ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x18).toByte()), // Empty status byte?
+                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte()) // ff?
+            )
+            .build()
+
+        val ADbluetoothFilter: ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x00).toByte()), // Empty status byte?
+                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte()) // ff?
+            )
+            .build()
+
+        //AirPods
+        val ATbluetoothFilter: ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x10).toByte()),
+                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
+            )
+            .build()
+
+        //IPhone
+        val PhonebluetoothFilter: ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+                byteArrayOf((0x12).toByte(), (0x02).toByte(), (0x18).toByte()),
+                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
+            )
+            .build()
+
+        val AllFilter : ScanFilter = ScanFilter.Builder().build()
+
+        if (FilterCheck == "AirPods"){
+            devfilters.add(0,APbluetoothFilter)
+
+        }
+        else if (FilterCheck == "Apple Devices"){
+            devfilters.add(0,ADbluetoothFilter)
+        }
+
+        else if (FilterCheck == "IPhone"){
+            devfilters.add(0,PhonebluetoothFilter)
+        }
+        else if (FilterCheck == "AirTags"){
+            devfilters.add(0,ATbluetoothFilter)
+
+        }else if (FilterCheck == "Find My Devices") {
+            devfilters.add(0,AllFilter)
+            // Add Find My Devices Filter
+        }else{
+            devfilters.add(0,AllFilter)
+
+            // Add Unknown Filters
+        }
+
+
+    }
+
 
 
     @SuppressLint("MissingPermission")
@@ -209,12 +283,14 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
             if (DeviceManager.getDeviceType(result) == DeviceType.AIRPODS && this@DeviceDetailsActivity.title == name) {
 //                Toast.makeText(this@ListActivity,"AirPodz",Toast.LENGTH_SHORT).show()
+                connectToDevice(result.device)
 
             } else if (DeviceManager.getDeviceType(result) == DeviceType.IPhone && this@DeviceDetailsActivity.title == name) {
 //                Toast.makeText(this@ListActivity,"Iphone",Toast.LENGTH_SHORT).show()
 
             } else if (DeviceManager.getDeviceType(result!!)== DeviceType.AIRTAG && this.title == name) {
 //                Toast.makeText(this@ListActivity,"AirTag",Toast.LENGTH_SHORT).show()
+                connectToDevice(result.device)
 
 
 
@@ -224,6 +300,9 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
             } else if (DeviceManager.getDeviceType(result!!)== DeviceType.TILE && this.title == name) {
 //                Toast.makeText(this@ListActivity,"Tile",Toast.LENGTH_SHORT).show()
+
+                connectToDevice(result.device)
+
 
 
             }else if(DeviceManager.getDeviceType(result) == DeviceType.APPLE && this.title == name){
@@ -244,7 +323,52 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
     }
 
+    @SuppressLint("MissingPermission")
+    fun connectToDevice(device: BluetoothDevice) {
+        if (mGatt == null) {
+            mGatt = device.connectGatt(this, false, gattCallback)
+//            scanLeDevice(false) // will stop after first device detection
+        }
+    }
+    @SuppressLint("MissingPermission")
+    private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            Log.i("onConnectionStateChange", "Status: $status")
+            when (newState) {
+                BluetoothProfile.STATE_CONNECTED -> {
+                    Log.i("gattCallback", "STATE_CONNECTED")
+                    gatt.discoverServices()
+                }
+                BluetoothProfile.STATE_DISCONNECTED -> Log.e("gattCallback", "STATE_DISCONNECTED")
+                else -> Log.e("gattCallback", "STATE_OTHER")
+            }
+        }
 
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            val services = gatt.services
+            Log.i("onServicesDiscovered", services.toString())
+            gatt.readCharacteristic(services[1].characteristics[0])
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic, status: Int
+        ) {
+            Log.i("onCharacteristicRead", characteristic.toString())
+            gatt.disconnect()
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == 1) {
+            if (resultCode == RESULT_CANCELED) {
+                //Bluetooth not enabled.
+                finish()
+                return
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
 
 
 }

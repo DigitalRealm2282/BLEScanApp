@@ -55,13 +55,13 @@ class ListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_list)
 
+        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
         setupUI()
         beacons = ArrayList<Beacon>()
         tx = findViewById<TextView>(R.id.textND)
 
         displayBeaconsList()
-        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         scanLeDevice()
 
     }
@@ -137,7 +137,7 @@ class ListActivity : AppCompatActivity() {
             if (!scanning) { // Stops scanning after a pre-defined scan period.
                 handler.postDelayed({
                     scanning = false
-                    m_bluetoothAdapter!!.bluetoothLeScanner.stopScan(lleScanCallback)
+                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
                     if (scan_list.isNotEmpty()) {
 //                        Toast.makeText(
 //                            this@ListActivity,
@@ -376,8 +376,7 @@ class ListActivity : AppCompatActivity() {
         recyclerView!!.layoutManager = layoutManager
         recyclerView!!.adapter = adapter
 
-        if (beacons.isNotEmpty())
-            tx?.visibility = View.GONE
+        tx?.visibility = View.GONE
 
         adapter!!.notifyDataSetChanged()
 
@@ -463,12 +462,28 @@ class ListActivity : AppCompatActivity() {
     }
 
 
+    @SuppressLint("MissingPermission")
     override fun onPause() {
         super.onPause()
-        scan_list.clear()
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+
     }
+
+    @SuppressLint("MissingPermission")
+    override fun onResume() {
+        m_bluetoothAdapter?.bluetoothLeScanner?.startScan(devfilters,ScanSettings.Builder().setScanMode(
+            ScanSettings.SCAN_MODE_LOW_LATENCY
+        ).build(),lleScanCallback)
+
+        super.onResume()
+    }
+    @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
         scan_list.clear()
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        m_bluetoothAdapter = null
+
+//        unregisterReceiver(mReceiver)
     }
 }
