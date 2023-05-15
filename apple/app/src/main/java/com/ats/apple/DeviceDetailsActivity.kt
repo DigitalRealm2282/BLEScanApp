@@ -13,8 +13,11 @@ import android.util.Log
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
+import com.ats.apple.util.types.AirPods
+import com.ats.apple.util.types.AirTag
 import com.github.mikephil.charting.charts.LineChart
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -24,12 +27,14 @@ import kotlinx.coroutines.launch
 import org.eazegraph.lib.charts.ValueLineChart
 import org.eazegraph.lib.models.ValueLinePoint
 import org.eazegraph.lib.models.ValueLineSeries
+import java.sql.Time
+import java.sql.Timestamp
 
 
 class DeviceDetailsActivity : AppCompatActivity() {
 
     private var m_bluetoothAdapter: BluetoothAdapter? = null
-    private val SCAN_PERIOD: Long = 15000
+//    private val SCAN_PERIOD: Long = 15000
     private var scanning = false
     private val handler = Handler()
     private val scan_list : ArrayList<ScanResult> = ArrayList()
@@ -70,8 +75,15 @@ class DeviceDetailsActivity : AppCompatActivity() {
         val Address = findViewById<TextView>(R.id.MacAddressTxt)
         Address.text = address
         val play = findViewById<MaterialButton>(R.id.play)
-        play.setOnClickListener {
-            scanLeDevice()
+        val ll = findViewById<SwipeRefreshLayout>(R.id.refreshCl)
+        ll.setOnRefreshListener {
+            if (!scanning) {
+                scanLeDevice()
+                ll.isRefreshing = false
+            }else{
+                ll.isRefreshing = false
+                Toast.makeText(this@DeviceDetailsActivity,"Already Scanning",Toast.LENGTH_SHORT).show()
+            }
         }
 
         if (name!!.isNotEmpty() or !name.contains("Device")) {
@@ -94,23 +106,23 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
         GlobalScope.launch(Dispatchers.IO) {
             if (!scanning) { // Stops scanning after a pre-defined scan period.
-                handler.postDelayed({
-                    scanning = false
-                    m_bluetoothAdapter!!.bluetoothLeScanner.stopScan(lleScanCallback)
-                    if (scan_list.isNotEmpty()) {
-//                        Toast.makeText(
-//                            this@ListActivity,
-//                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-                        Toast.makeText(this@DeviceDetailsActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
-                        Log.i("ScanListLA","Found: " + scan_list.size.toString())
-
-                    }else{
-                        Toast.makeText(this@DeviceDetailsActivity,"Empty", Toast.LENGTH_SHORT).show()
-
-                    }
-                }, SCAN_PERIOD)
+//                handler.postDelayed({
+//                    scanning = false
+//                    m_bluetoothAdapter!!.bluetoothLeScanner.stopScan(lleScanCallback)
+//                    if (scan_list.isNotEmpty()) {
+////                        Toast.makeText(
+////                            this@ListActivity,
+////                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
+////                            Toast.LENGTH_SHORT
+////                        ).show()
+//                        Toast.makeText(this@DeviceDetailsActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
+//                        Log.i("ScanListLA","Found: " + scan_list.size.toString())
+//
+//                    }else{
+//                        Toast.makeText(this@DeviceDetailsActivity,"Empty", Toast.LENGTH_SHORT).show()
+//
+//                    }
+//                }, SCAN_PERIOD)
                 scanning = true
                 val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
                 val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
@@ -137,76 +149,43 @@ class DeviceDetailsActivity : AppCompatActivity() {
             Log.e("Error", "Scan Failed: $errorCode")
         }
 
-
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             GlobalScope.launch(Dispatchers.Main) {
-
-                Toast.makeText(this@DeviceDetailsActivity,"Fired", Toast.LENGTH_SHORT).show()
 
                 val res = result
                 val btDevice = res!!.device
                 val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
                 // start scan get results callback & if bundle address = address of one of results get its rssi
                 if (btDevice.address == address){
-                    Toast.makeText(this@DeviceDetailsActivity,"Device Found", Toast.LENGTH_SHORT).show()
-                    checkType(result)
-
-                    val rssi = findViewById<TextView>(R.id.rssiTxt)
-
-                    val series = ValueLineSeries()
-                    series.color = -0xa9480f
-
-                    series.addPoint(ValueLinePoint("Jan", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Feb", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Mar", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Apr", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Mai", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Jun", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Jul", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Aug", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Sep", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Oct", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Nov", res.rssi.toFloat()))
-                    series.addPoint(ValueLinePoint("Dec", res.rssi.toFloat()))
-
-                    chart?.addSeries(series)
-//                    chart.data = res.rssi
-                    rssi.text = res.rssi.toString()
+//                    checkType(result)
+                    chartSetup(res.rssi.toFloat())
+                    connectToDevice(result.device,result)
                 }
 
-                //check that this is closebeacons device by UUIDS &
-                // device with same address is not contains in list.
-
-                //if((uuidsFromScan != null) && (UUIDS.equals(uuidsFromScan)) &&
-//                if (!result.device.name.isNullOrEmpty()) {
-//                    if (checkMacAddress(result.device.address.toString())) {
-//                        val iBeacon = Beacon(
-//                            result.device.name.toString(),
-//                            result.device.address.toString(),
-//                            result.rssi.toString(),
-//                            result.scanRecord?.serviceUuids.toString()
-//                        )
-//                        beacons?.add(iBeacon)
-//                    }
-//                }else{
-//                    if (checkMacAddress(result.device.address.toString())) {
-//                        val iBeacon = Beacon(
-//                            "device 1",
-//                            result.device.address.toString(),
-//                            result.rssi.toString(),
-//                            result.scanRecord?.serviceUuids.toString()
-//                        )
-//                        beacons?.add(iBeacon)
-//                    }
-//                }
-//                displayBeaconsList()
-//                connectToDevice(btDevice)
             }
 
         }
 
+    }
+
+    private fun chartSetup(rss:Float){
+
+        val rssi = findViewById<TextView>(R.id.rssiTxt)
+
+        val series = ValueLineSeries()
+        series.color = -0xa9480f
+        var m = 1
+
+        val x = m++
+        series.addPoint(ValueLinePoint(x.toString(), rss))
+        series.addPoint(ValueLinePoint(x.toString(), rss))
+
+
+        chart?.addSeries(series)
+
+        rssi.text = rss.toString()
     }
 
     private fun scanFilters(FilterCheck: String){
@@ -283,14 +262,16 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
             if (DeviceManager.getDeviceType(result) == DeviceType.AIRPODS && this@DeviceDetailsActivity.title == name) {
 //                Toast.makeText(this@ListActivity,"AirPodz",Toast.LENGTH_SHORT).show()
-                connectToDevice(result.device)
+                connectToDevice(result.device,result)
 
             } else if (DeviceManager.getDeviceType(result) == DeviceType.IPhone && this@DeviceDetailsActivity.title == name) {
 //                Toast.makeText(this@ListActivity,"Iphone",Toast.LENGTH_SHORT).show()
 
             } else if (DeviceManager.getDeviceType(result!!)== DeviceType.AIRTAG && this.title == name) {
 //                Toast.makeText(this@ListActivity,"AirTag",Toast.LENGTH_SHORT).show()
-                connectToDevice(result.device)
+                AirPods.AIRPODS_START_SOUND_OPCODE
+
+                connectToDevice(result.device,result)
 
 
 
@@ -301,7 +282,7 @@ class DeviceDetailsActivity : AppCompatActivity() {
             } else if (DeviceManager.getDeviceType(result!!)== DeviceType.TILE && this.title == name) {
 //                Toast.makeText(this@ListActivity,"Tile",Toast.LENGTH_SHORT).show()
 
-                connectToDevice(result.device)
+                connectToDevice(result.device,result)
 
 
 
@@ -323,11 +304,17 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
     }
 
+
     @SuppressLint("MissingPermission")
-    fun connectToDevice(device: BluetoothDevice) {
+    fun connectToDevice(device: BluetoothDevice,scanResult: ScanResult) {
         if (mGatt == null) {
             mGatt = device.connectGatt(this, false, gattCallback)
 //            scanLeDevice(false) // will stop after first device detection
+            if (DeviceManager.getDeviceType(scanResult) == DeviceType.AIRPODS) {
+                AirPods.Companion.AIRPODS_SOUND_SERVICE
+                AirPods.AIRPODS_SOUND_CHARACTERISTIC
+                AirPods.AIRPODS_START_SOUND_OPCODE
+            }
         }
     }
     @SuppressLint("MissingPermission")
@@ -338,16 +325,23 @@ class DeviceDetailsActivity : AppCompatActivity() {
                 BluetoothProfile.STATE_CONNECTED -> {
                     Log.i("gattCallback", "STATE_CONNECTED")
                     gatt.discoverServices()
+                    gatt.services
+                    Toast.makeText(this@DeviceDetailsActivity,"Connected",Toast.LENGTH_SHORT).show()
+                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                    scanning = false
+
+
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> Log.e("gattCallback", "STATE_DISCONNECTED")
                 else -> Log.e("gattCallback", "STATE_OTHER")
+
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             val services = gatt.services
             Log.i("onServicesDiscovered", services.toString())
-            gatt.readCharacteristic(services[1].characteristics[0])
+            gatt.readCharacteristic(services[0].characteristics[0])
         }
 
         override fun onCharacteristicRead(

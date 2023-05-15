@@ -18,27 +18,25 @@ import com.ats.apple.adapter.BeaconAdapter
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
 import com.ats.apple.util.types.Beacon
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.*
 
 
 class ListActivity : AppCompatActivity() {
 //    private val leDeviceListAdapter = LeDeviceListAdapter()
 
-    private val scan_list : ArrayList<ScanResult> = ArrayList()
     private val device_list : ArrayList<BluetoothDevice> = ArrayList()
 
     private val devfilters: MutableList<ScanFilter> = ArrayList()
 
     private var m_bluetoothAdapter: BluetoothAdapter? = null
-    private val SCAN_PERIOD: Long = 15000
+    private val SCAN_PERIOD: Long = 5000
     private var scanning = false
     private val handler = Handler()
 
-    private val mLEScanner: BluetoothLeScanner? = null
-    private val settings: ScanSettings? = null
+//    private val mLEScanner: BluetoothLeScanner? = null
+//    private val settings: ScanSettings? = null
     private var mGatt: BluetoothGatt? = null
     private var tx:TextView?=null
     private var Name:String?=null
@@ -48,7 +46,7 @@ class ListActivity : AppCompatActivity() {
     private var layoutManager: RecyclerView.LayoutManager? = null
     private var adapter: RecyclerView.Adapter<*>? = null
     private lateinit var beacons: ArrayList<Beacon>
-    private val UUIDS = "[19721006-2004-2007-2014-acc0cbeac000]" //closebeacons UUIDS
+//    private val UUIDS = "[19721006-2004-2007-2014-acc0cbeac000]" //closebeacons UUIDS
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,39 +64,70 @@ class ListActivity : AppCompatActivity() {
 
     }
 
+    @SuppressLint("MissingPermission")
     private fun setupUI(){
 
         if (intent.getStringExtra("Category")== "AirPods"){
             this.title = "AirPods"
+//            scanFilters(intent.getStringExtra("Category")!!)
+
         }
         if (intent.getStringExtra("Category")== "IPhone"){
             this.title = "IPhone"
 
+//            scanFilters(intent.getStringExtra("Category")!!)
+
         }
         if (intent.getStringExtra("Category")== "UNK"){
             this.title = "Unknown Devices"
+//            scanFilters(intent.getStringExtra("Category")!!)
 
         }
         if (intent.getStringExtra("Category")== "Tile"){
             this.title = "Tiles"
+//            scanFilters(intent.getStringExtra("Category")!!)
 
         }
         if (intent.getStringExtra("Category")== "AirTag"){
             this.title = "AirTags"
+//            scanFilters(intent.getStringExtra("Category")!!)
 
         }
         if (intent.getStringExtra("Category")== "FMD"){
             this.title = "Find My Devices"
+//            scanFilters(intent.getStringExtra("Category")!!)
 
         }
         if (intent.getStringExtra("Category")== "Apple"){
             this.title = "Apple Devices"
+//            scanFilters(intent.getStringExtra("Category")!!)
 
         }
 
+
         val rl = findViewById<SwipeRefreshLayout>(R.id.refreshlayout)
+//        rl.setOnRefreshListener {
+//            if (beacons.isNotEmpty()){
+////                Toast.makeText(this@ListActivity,"Data Detected",Toast.LENGTH_SHORT).show()
+////                recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
+////                recyclerView!!.visibility = View.VISIBLE
+////                tx?.visibility = View.GONE
+//                displayBeaconsList()
+//                rl.isRefreshing = false
+//                scanLeDevice()
+//            }else{
+////                recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
+////                recyclerView!!.visibility = View.GONE
+////                tx?.visibility = View.VISIBLE
+//                Toast.makeText(this@ListActivity,"No Data Found",Toast.LENGTH_SHORT).show()
+//                rl.isRefreshing = false
+//                recreate()
+//                scanLeDevice()
+//            }
+//        }
+
         rl.setOnRefreshListener {
-            if (beacons.isNotEmpty()){
+            if (!scanning){
 //                Toast.makeText(this@ListActivity,"Data Detected",Toast.LENGTH_SHORT).show()
 //                recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
 //                recyclerView!!.visibility = View.VISIBLE
@@ -110,10 +139,23 @@ class ListActivity : AppCompatActivity() {
 //                recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
 //                recyclerView!!.visibility = View.GONE
 //                tx?.visibility = View.VISIBLE
-                Toast.makeText(this@ListActivity,"No Data Found",Toast.LENGTH_SHORT).show()
+                displayBeaconsList()
+                Toast.makeText(this@ListActivity,"Already Scanning",Toast.LENGTH_SHORT).show()
                 rl.isRefreshing = false
-                recreate()
+
                 scanLeDevice()
+            }
+        }
+
+        val fab = findViewById<FloatingActionButton>(R.id.scanFAB)
+        fab.setOnClickListener {
+            if (!scanning){
+                scanLeDevice()
+                Toast.makeText(this@ListActivity,"Scanning",Toast.LENGTH_SHORT).show()
+            }else{
+                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                Toast.makeText(this@ListActivity,"Stopped",Toast.LENGTH_SHORT).show()
+
             }
         }
     }
@@ -137,18 +179,7 @@ class ListActivity : AppCompatActivity() {
             if (!scanning) { // Stops scanning after a pre-defined scan period.
                 handler.postDelayed({
                     scanning = false
-                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-                    if (scan_list.isNotEmpty()) {
-//                        Toast.makeText(
-//                            this@ListActivity,
-//                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//                        Toast.makeText(this@ListActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
-                        Log.i("ScanListLA","Found: " + scan_list.size.toString())
-
-                    }
-                }, SCAN_PERIOD)
+                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback) }, SCAN_PERIOD)
                 scanning = true
                 val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
                 val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
@@ -157,12 +188,10 @@ class ListActivity : AppCompatActivity() {
                     settBuilder,
                     lleScanCallback
                 )
-//                DeviceManager.scanFilter
 
             } else {
                 scanning = false
                 m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-//                Toast.makeText(this@MainActivity, "Stopped", Toast.LENGTH_SHORT).show()
 
             }
         }
@@ -173,6 +202,14 @@ class ListActivity : AppCompatActivity() {
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e("Error", "Scan Failed: $errorCode")
+//            val view = findViewById<SwipeRefreshLayout>(R.id.refreshlayout)
+//            view.let {
+//                Snackbar.make(
+//                    it,
+//                    R.string.ble_service_connection_error,
+//                    Snackbar.LENGTH_LONG
+//                )
+//            }
         }
 
 
@@ -180,9 +217,12 @@ class ListActivity : AppCompatActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             GlobalScope.launch(Dispatchers.Main) {
-                checkType(result!!)
 
-                val btDevice = result.device
+                with(Dispatchers.Default) {
+                    checkType(result!!)
+                }
+
+                val btDevice = result!!.device
                 val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
 
                 //check that this is closebeacons device by UUIDS &
@@ -284,7 +324,7 @@ class ListActivity : AppCompatActivity() {
         val PhonebluetoothFilter: ScanFilter = ScanFilter.Builder()
             .setManufacturerData(
                 0x4C,
-                byteArrayOf((0x12).toByte(), (0x02).toByte(), (0x18).toByte()),
+                byteArrayOf((0x12).toByte(), (0x02).toByte(), (0x10).toByte()),
                 byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
             )
             .build()
@@ -322,28 +362,25 @@ class ListActivity : AppCompatActivity() {
     private fun checkType(result: ScanResult){
 //        Toast.makeText(this@ListActivity,"CallBack Fired",Toast.LENGTH_SHORT).show()
 
-        if (!scan_list.contains(result)) {
-            scan_list.add(result)
-
             if (DeviceManager.getDeviceType(result) == DeviceType.AIRPODS && this@ListActivity.title == "AirPods") {
 //                Toast.makeText(this@ListActivity,"AirPodz",Toast.LENGTH_SHORT).show()
                 resToBeacon(result)
 
-            } else if (DeviceManager.getDeviceType(result) == DeviceType.IPhone && this@ListActivity.title == "IPhone") {
+            } else if (this@ListActivity.title == "IPhone" && DeviceType.IPhone == DeviceManager.getDeviceType(result)) {
 //                Toast.makeText(this@ListActivity,"Iphone",Toast.LENGTH_SHORT).show()
                 resToBeacon(result)
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.AIRTAG && this.title == "AirTags") {
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.AIRTAG && this.title == "AirTags") {
 //                Toast.makeText(this@ListActivity,"AirTag",Toast.LENGTH_SHORT).show()
                 resToBeacon(result)
 
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.FIND_MY && this.title == "Find My Devices") {
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.FIND_MY && this.title == "Find My Devices") {
                 resToBeacon(result)
 //                Toast.makeText(this@ListActivity,"Find",Toast.LENGTH_SHORT).show()
 
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.TILE && this.title == "Tiles") {
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.TILE && this.title == "Tiles") {
 //                Toast.makeText(this@ListActivity,"Tile",Toast.LENGTH_SHORT).show()
                 resToBeacon(result)
 
@@ -356,15 +393,10 @@ class ListActivity : AppCompatActivity() {
 //                Toast.makeText(this@ListActivity,"Unknown",Toast.LENGTH_SHORT).show()
                 resToBeacon(result)
             } else {
-                Toast.makeText(this@ListActivity,"Unknown Checked Data or not matching ",Toast.LENGTH_SHORT).show()
+                Log.e("ListActivity","Unknown Checked Data or not matching ")
 
             }
-        }else{
-            val ind = scan_list.indexOf(result)
-            scan_list[ind]
 
-
-        }
 
     }
 
@@ -375,11 +407,8 @@ class ListActivity : AppCompatActivity() {
         adapter = BeaconAdapter(this, beacons)
         recyclerView!!.layoutManager = layoutManager
         recyclerView!!.adapter = adapter
-
         tx?.visibility = View.GONE
-
         adapter!!.notifyDataSetChanged()
-
     }
 
     fun checkMacAddress(address: String): Boolean {
@@ -480,7 +509,6 @@ class ListActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
-        scan_list.clear()
         m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
         m_bluetoothAdapter = null
 

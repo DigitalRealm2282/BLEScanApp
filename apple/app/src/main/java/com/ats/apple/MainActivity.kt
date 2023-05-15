@@ -2,12 +2,8 @@ package com.ats.apple
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.bluetooth.*
-import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
-import android.bluetooth.le.ScanResult
-import android.bluetooth.le.ScanSettings
+import android.bluetooth.le.*
 import android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY
 import android.content.*
 import android.content.pm.PackageManager
@@ -21,7 +17,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
 import com.ats.apple.util.Util
@@ -41,6 +36,21 @@ class MainActivity : AppCompatActivity() {
     private val device_list : ArrayList<BluetoothDevice> = ArrayList()
 
     private val devfilters: MutableList<ScanFilter> = ArrayList()
+//    val IphoneMatcher = ScanFilter.Builder().setManufacturerData(
+//        0x4C,
+//        byteArrayOf((0x12).toByte(), (0x02).toByte(), (0x18).toByte()),
+//        byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
+//    )
+//        .build()
+//
+//    val AirPodsMatcher = ScanFilter.Builder()
+//        .setManufacturerData(
+//            0x4C,
+//            byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x18).toByte()), // Empty status byte?
+//            byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte()) // ff?
+//        )
+//        .build()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,27 +59,11 @@ class MainActivity : AppCompatActivity() {
         checkAllPerms(this,this.applicationContext)
         sdkhigh(this.applicationContext,this)
         checkBTPerms()
-//        scanFilters()
-//        checkBT()
+        scanFilters()
         setupUI()
 
-//        val tx4 = findViewById<TextView>(R.id.text4)
-//
-//        if (scanning){
-//            tx4.text ="Scanning"
-//        }else{
-//            tx4.text =""
-//        }
-
     }
 
-
-    val gattCallback = object:BluetoothGattCallback(){
-        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            super.onServicesDiscovered(gatt, status)
-            gatt?.device?.address
-        }
-    }
 
     @SuppressLint("MissingPermission")
     private fun setupUI(){
@@ -85,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         textBtn.setOnClickListener {
             if (Util.checkBluetoothPermission(this.applicationContext)) {
-                registerReceiver(mReceiver,IntentFilter())
+//                registerReceiver(mReceiver,IntentFilter())
                 scan_list.clear()
                 scanLeDevice()
             }else{
@@ -167,12 +161,27 @@ class MainActivity : AppCompatActivity() {
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e("Error", "Scan Failed: $errorCode")
-//            Toast.makeText(this@MainActivity, "Error : $errorCode",Toast.LENGTH_SHORT).show()
+//            val view = findViewById<ConstraintLayout>(R.id.constraintll)
+//            view.let {
+//                Snackbar.make(
+//                    it,
+//                    R.string.ble_service_connection_error,
+//                    Snackbar.LENGTH_LONG
+//                )
+//            }
         }
 
 
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
+            val txt = findViewById<TextView>(R.id.text4)
+
+//            if (AirPodsMatcher.matches(result)){
+//                Toast.makeText(this@MainActivity,"Done",Toast.LENGTH_SHORT).show()
+//            }
+
+//            txt.text = result!!.device.type!!.toUInt().toString()
+
             GlobalScope.launch(Dispatchers.Main) {
                 if (result != null)
                     checkType(result)
@@ -183,72 +192,60 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    @SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission", "NewApi")
     private fun checkType(result: ScanResult){
         val tx3 = findViewById<TextView>(R.id.text3)
-//        Toast.makeText(this@MainActivity,"CallBack Fired",Toast.LENGTH_SHORT).show()
 
         if (!scan_list.contains(result)) {
             scan_list.add(result)
 
-            if (DeviceManager.getDeviceType(result) == DeviceType.AIRPODS) {
+            if ( DeviceManager.getDeviceType(result) == DeviceType.AIRPODS) {
                 val textAp = findViewById<TextView>(R.id.APTextno)
                 var no = 1
                 textAp.text = no++.toString()
-//                val tx2 = findViewById<TextView>(R.id.text2)
-//                tx2.text =
-//                    "ResultAP:" + "\n" + "Name:" + result?.device?.name.toString() + "\n" + "Manufacturer Data:" + result?.scanRecord?.manufacturerSpecificData?.toString() + "\n" + "Manufacturer Data2:" + result?.scanRecord?.manufacturerSpecificData?.get(
-//                        76
-//                    )?.get(2)
-//                        ?.toString(2) + "\n" + "Address: " + result?.device?.address.toString() + "\n" + "rssi: " + result?.rssi.toString()
-//                tx3.text = "Detected"
+
+//                val scanRecord: ScanRecord = result.scanRecord!!
+//                val manufacturerData = scanRecord.getManufacturerSpecificData(0x004c)
+
 
             } else if (DeviceManager.getDeviceType(result) == DeviceType.IPhone) {
 
                 val textAD = findViewById<TextView>(R.id.iphoneTextno)
                 var no = 1
                 textAD.text = no++.toString()
-//                val tx = findViewById<TextView>(R.id.text)
-//                tx.text = "ResultPhone:" + "\n" + "Name:" + result?.device?.name.toString() + "\n" + "Manufacturer Data:" + result?.scanRecord?.manufacturerSpecificData?.get(76)?.get(2)?.toString(2) + "\n" + "Manufacturer Data2:" + result?.scanRecord?.manufacturerSpecificData?.get(76)?.get(2)?.toString() + "\n" + "Address: " + result?.device?.address.toString() + "\n" + "rssi: " + result?.rssi.toString()
-//
-//                tx3.text = "Detected"
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.AIRTAG) {
+
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.AIRTAG) {
                 val textAT = findViewById<TextView>(R.id.atags)
                 var no = 1
                 textAT.text = no++.toString()
-//                tx3.text = "Detected"
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.FIND_MY) {
+
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.FIND_MY) {
                 val textFMD = findViewById<TextView>(R.id.findMyDev)
                 var no = 1
                 textFMD.text = no++.toString()
-//                tx3.text = "Detected"
 
-            } else if (DeviceManager.getDeviceType(result!!)== DeviceType.TILE) {
+
+            } else if (DeviceManager.getDeviceType(result) == DeviceType.TILE) {
                 val textTile = findViewById<TextView>(R.id.tileFoundText)
                 var no = 1
                 textTile.text = no++.toString()
-//                tx3.text = "Detected"
-            }else if(DeviceManager.getDeviceType(result) == DeviceType.APPLE){
+            }else if(DeviceManager.getDeviceType(result) == DeviceType.APPLE ){
                 val textADT = findViewById<TextView>(R.id.AppleDevText)
                 var no = 1
                 textADT.text = no++.toString()
-//                tx3.text = "Detected"
+
+
             }else if(DeviceManager.getDeviceType(result) == DeviceType.UNKNOWN) {
                 val textund = findViewById<TextView>(R.id.unkDevText)
                 var no = 1
                 textund.text = no++.toString()
-//                tx3.text = "Detected"
 
             } else {
                 tx3.text = "None detected"
 
-//                val textAD = findViewById<TextView>(R.id.tileFoundText)
-//                var no = 1
-//                textAD.text = no++.toString()
-//
-//                tx3.text = "Detected"
+
             }
         }else{
             val ind = scan_list.indexOf(result)
@@ -259,14 +256,6 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
-
-//    fun runInBackgroundAndUseInCallerThread(result: ScanResult):DeviceType {
-//        var type :DeviceType
-//        runBlocking(Dispatchers.IO) {
-//            type = DeviceManager.getDeviceType(result)
-//        }
-//        return type
-//    }
 
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -281,21 +270,6 @@ class MainActivity : AppCompatActivity() {
                     if (scan_list.isNotEmpty()) {
                         Log.i("ScanListMA","Found: " + scan_list.size.toString())
 
-//                        val m = (0..2).random()
-//                        Toast.makeText(
-//                            this@MainActivity,
-//                            m.toString(),
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//                        Toast.makeText(
-//                            this@MainActivity,
-//                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//
-//                        val tx4 = findViewById<TextView>(R.id.text4)
-//                        tx4.text =
-//                            "Name: " + scan_list[0].device.name + scan_list[0].device.address+ "\n"+ "Signal Strength: " +  scan_list[0].rssi.toString()
 
                     }
                 }, SCAN_PERIOD)
@@ -335,71 +309,18 @@ class MainActivity : AppCompatActivity() {
 
 
 
-//    @SuppressLint("MissingPermission")
-//    private fun checkBT(){
+//    private val mReceiver = object : BroadcastReceiver() {
+//        override fun onReceive(context: Context, intent: Intent) {
+//            val action = intent.action
+//            if (BluetoothDevice.ACTION_FOUND == action) {
 //
-//        val mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-//        if (mBluetoothAdapter == null) {
-//            Toast.makeText(this@MainActivity,"Phone doesn't support Bluetooth", Toast.LENGTH_SHORT).show()
-//        } else if (!mBluetoothAdapter.isEnabled) {
-//            val enableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-//            startActivityForResult(enableIntent, REQUEST_ENABLE_BLUETOOTH)
+//                val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+//                device_list.add(device!!)
 //
-//            val enableBluetoothIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-//            startActivityForResult(enableBluetoothIntent, REQUEST_ENABLE_BLUETOOTH)
-//
-//            val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-//                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
 //            }
-//            startActivity(discoverableIntent)
-//        } else {
-//            discoverDevices()
 //        }
 //    }
 
-
-    private val mReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-            if (BluetoothDevice.ACTION_FOUND == action) {
-
-                val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                device_list.add(device!!)
-
-            }
-        }
-    }
-
-//    @SuppressLint("MissingPermission")
-//    private fun discoverDevices(){
-//        if (m_bluetoothAdapter!!.isDiscovering) {
-//            // Bluetooth is already in mode discovery mode, we cancel to restart it again
-//            m_bluetoothAdapter!!.cancelDiscovery()
-//        }
-//        val bool = m_bluetoothAdapter?.startDiscovery()
-//        Log.i("", bool.toString())
-//        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-//        registerReceiver(mReceiver, filter)
-//
-//        AsyncTask.execute {
-//
-//            val scanSettingsBuilder = ScanSettings.Builder()
-//                .setScanMode(SCAN_MODE_LOW_LATENCY)
-//                .setReportDelay(0L)
-//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//                scanSettingsBuilder
-//                    .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-//                    .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-//                    .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
-//            }
-//            m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
-//                devfilters,
-//                scanSettingsBuilder.build(),
-//                lleScanCallback
-//            )
-//        }
-//        unregisterReceiver(mReceiver)
-//    }
 
     private fun scanFilters(){
         val APbluetoothFilter: ScanFilter = ScanFilter.Builder()
@@ -445,7 +366,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
 //        val All2bluetoothFilter: ScanFilter = ScanFilter.Builder().build()
-
+//
         devfilters.add(0,ATbluetoothFilter)
         devfilters.add(1,ADbluetoothFilter)
         devfilters.add(2,APbluetoothFilter)
@@ -488,30 +409,11 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
 
-//            if (requestCode == 0){
-//                if (resultCode == RESULT_OK)
-//                    discoverDevices()
-//            }
+
         }
     }
 
-//    private fun startBleScanPerms() {
-//        if (!hasRequiredRuntimePermissions()) {
-//            requestRelevantRuntimePermissions()
-//        } else { /* TODO: Actually perform scan */ }
-//    }
 
-//    private fun requestRelevantRuntimePermissions() {
-//        if (hasRequiredRuntimePermissions()) { return }
-//        when {
-//            Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> {
-//                requestLocationPermission(this)
-//            }
-//            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-//                requestBluetoothPermissions(this)
-//            }
-//        }
-//    }
 
     @SuppressLint("MissingPermission")
     override fun onPause() {
