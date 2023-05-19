@@ -386,7 +386,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission")
     private fun scanLeDevice() {

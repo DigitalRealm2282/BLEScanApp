@@ -1,13 +1,20 @@
 package com.ats.apple.data
 
 import android.annotation.SuppressLint
+import android.bluetooth.le.ScanResult
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import androidx.room.RoomMasterTable
 import com.ats.apple.data.model.BaseDevice
+import com.ats.apple.util.types.AirPods
+import com.ats.apple.util.types.AirTag
+import com.ats.apple.util.types.Beacon
+import com.ats.apple.util.types.FindMy
+import com.ats.apple.util.types.IPhoneDevice
+import com.ats.apple.util.types.Tile
+import com.ats.apple.util.types.Unknown
 
 
 class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
@@ -21,7 +28,12 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         val query = ("CREATE TABLE " + TABLE_NAME + " ("
                 + ID_COL + " INTEGER PRIMARY KEY, " +
                 NAME_COl + " TEXT," +
-                sn + " TEXT" + ")")
+                sn + " TEXT," +
+                rssi + " FLOAT, " +
+                firstSeen + " TEXT," +
+                lastSeen + " TEXT," +
+                uid + " TEXT," +
+                DeviceType + " TEXT"+")")
 
         // we are calling sqlite
         // method for executing our query
@@ -106,7 +118,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     }
 
     fun getAllIphoneDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = IPhone_Device "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${IPhoneDevice.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -121,7 +133,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         return data
     }
     fun getAllAirTagDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = AirTag "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${AirTag.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -135,7 +147,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         return data
     }
     fun getAllAirPodsDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = AirPods "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${AirPods.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -165,7 +177,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     }
 
     fun getAllUnknownDetails(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = Unknown_Device "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${Unknown.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -194,7 +206,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     }
 
     fun getAllTilesDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = Tile "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${Tile.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -209,13 +221,38 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     }
 
     fun getAllFindMyDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = FindMy_Device "
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${FindMy.deviceType.name} "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
         if (cursor.moveToFirst()) {
             do {
 
+                cursor.getColumnIndex("DevType")
+                // get the data into array, or class variable
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return data
+    }
+
+    @SuppressLint("Range")
+    fun getDev(beacon:Beacon): MutableList<String?>? {
+        val device = beacon
+        val uuid = device.uuids
+        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $uid = $uuid "
+        val db: SQLiteDatabase = this.readableDatabase
+        val cursor = db.rawQuery(selectQuery, null)
+        val data: MutableList<String?>? = null
+        if (cursor.moveToFirst()) {
+            do {
+//                val type = cursor.getString(cursor.getColumnIndex(devType.name))
+                val uuid = cursor.getString(cursor.getColumnIndex(uid))
+//                data.add(0,Beacon(type,)))
+//                data?.add(0,type)
+                data?.add(0,uuid)
+
+                cursor.getColumnIndex("DevType")
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
         }
@@ -231,7 +268,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         private val DATABASE_NAME = "BaseDevices"
 
         // below is the variable for database version
-        private val DATABASE_VERSION = 2
+        private val DATABASE_VERSION = 5
 
         // below is the variable for table name
         val TABLE_NAME = "devices_table"

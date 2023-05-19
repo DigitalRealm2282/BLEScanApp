@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Intent
+import android.database.Cursor
+import android.database.sqlite.SQLiteCursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.os.Build
@@ -33,6 +35,7 @@ import com.ats.apple.util.types.Tile
 import com.ats.apple.util.types.Unknown
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.*
+import java.lang.Exception
 
 
 class ListActivity : AppCompatActivity() {
@@ -289,7 +292,7 @@ class ListActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission", "NewApi")
     private fun resToBeacon(result: ScanResult,type: DeviceType){
         when(type.name){
-            IPhoneDevice.defaultDeviceName->{
+            IPhoneDevice.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllIphoneDetail()
@@ -299,7 +302,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            AirPods.defaultDeviceName->{
+            AirPods.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllAirTagDetail()
@@ -309,7 +312,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            AirTag.defaultDeviceName->{
+            AirTag.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllAirTagDetail()
@@ -319,7 +322,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            AppleDevice.defaultDeviceName->{
+            AppleDevice.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllAppleDetail()
@@ -329,7 +332,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            FindMy.defaultDeviceName->{
+            FindMy.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllFindMyDetail()
@@ -339,7 +342,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            Tile.defaultDeviceName->{
+            Tile.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllTilesDetail()
@@ -349,7 +352,7 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
                 }
             }
-            Unknown.defaultDeviceName->{
+            Unknown.deviceType.name->{
                 try {
                     //Add 7 function to 7 devices categories and add on each on click then add them to list
                     val iphone = db!!.getAllUnknownDetails()
@@ -367,8 +370,12 @@ class ListActivity : AppCompatActivity() {
                     Toast.makeText(this@ListActivity,iphone.getColumnName(0).toString(),Toast.LENGTH_SHORT).show()
                     Toast.makeText(this@ListActivity,iphone.getColumnName(1).toString(),Toast.LENGTH_SHORT).show()
                     Toast.makeText(this@ListActivity,iphone.getColumnName(2).toString(),Toast.LENGTH_SHORT).show()
-//                    Toast.makeText(this@ListActivity,iphone.getColumnName(3).toString(),Toast.LENGTH_SHORT).show()
-//                    Toast.makeText(this@ListActivity,iphone.getColumnName(4).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(3).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(4).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(5).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(6).toString(),Toast.LENGTH_SHORT).show()
+
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(7).toString(),Toast.LENGTH_SHORT).show()
 
 //                    Toast.makeText(this@ListActivity,iphone.getColumnName(1).toString(),Toast.LENGTH_SHORT).show()
 //                    Toast.makeText(this@ListActivity,iphone.getColumnName(2).toString(),Toast.LENGTH_SHORT).show()
@@ -394,6 +401,8 @@ class ListActivity : AppCompatActivity() {
                     BaseDevice(result).lastSeen
                 )
 //                beacons.add(iBeacon)
+                checkLastSeen(iBeacon)
+
                 addBeacon(iBeacon)
 
             }
@@ -412,12 +421,33 @@ class ListActivity : AppCompatActivity() {
                     BaseDevice(result).lastSeen
                 )
 //                beacons.add(iBeacon)
+                checkLastSeen(iBeacon)
                 addBeacon(iBeacon)
 
             }
         }
 
+        if (beacons.isNotEmpty()){
+            val ls = db?.getDev(beacons[0])?.get(0)?.toString()
+            Toast.makeText(this@ListActivity, ls.toString(),Toast.LENGTH_SHORT).show()
+        }
         adapter!!.notifyDataSetChanged()
+    }
+
+    @SuppressLint("NewApi")
+    private fun checkLastSeen(beacon: Beacon){
+        try {
+            if (beacon.uuids == db?.getDev(beacon)?.get(1)) {
+                db?.updateCourse(
+                    "devices_table",
+                    beacon.name,
+                    beacon.serialNumber,
+                    beacon.rssi.toFloat(),
+                    beacon.firstDiscovery.second.toString(),
+                    beacon.lastSeen.second.toString()
+                )
+            }
+        }catch (ex:Exception){Log.e("LA",ex.message.toString())}
     }
 
 //
