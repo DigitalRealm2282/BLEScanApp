@@ -23,8 +23,14 @@ import com.ats.apple.data.DBHelper
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
 import com.ats.apple.data.model.BaseDevice
+import com.ats.apple.util.types.AirPods
+import com.ats.apple.util.types.AirTag
+import com.ats.apple.util.types.AppleDevice
 import com.ats.apple.util.types.Beacon
+import com.ats.apple.util.types.FindMy
+import com.ats.apple.util.types.IPhoneDevice
 import com.ats.apple.util.types.Tile
+import com.ats.apple.util.types.Unknown
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.*
 
@@ -64,6 +70,17 @@ class ListActivity : AppCompatActivity() {
         displayBeaconsList()
 
         db = DBHelper(this, null)
+
+//
+//        try {
+//            //Add 7 function to 7 devices categories and add on each on click then add them to list
+//            val iphone = db!!.getAllIphoneDetail()
+//            Toast.makeText(this@ListActivity,iphone?.get(1).toString(),Toast.LENGTH_SHORT).show()
+//
+//        }catch (ex:SQLiteException){
+//            Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+//        }
+
         scanLeDevice()
 
     }
@@ -227,8 +244,9 @@ class ListActivity : AppCompatActivity() {
                 with(Dispatchers.Main) {
                     if (result!=null) {
                         val Dev = BaseDevice(result)
-                        checkType(result)
+//                        checkType(result)
                         resToBeacon(result, DeviceManager.getDeviceType(result))
+
                     }
                 }
 
@@ -270,16 +288,108 @@ class ListActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission", "NewApi")
     private fun resToBeacon(result: ScanResult,type: DeviceType){
+        when(type.name){
+            IPhoneDevice.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllIphoneDetail()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            AirPods.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllAirTagDetail()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            AirTag.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllAirTagDetail()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            AppleDevice.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllAppleDetail()
+                    Toast.makeText(this@ListActivity,iphone?.getColumnName(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            FindMy.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllFindMyDetail()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            Tile.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllTilesDetail()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            Unknown.defaultDeviceName->{
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    val iphone = db!!.getAllUnknownDetails()
+                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+            else -> {
+                try {
+                    //Add 7 function to 7 devices categories and add on each on click then add them to list
+                    Log.e("LA","No Devices in Db")
+                    val iphone = db!!.getAllAppleDetail()!!
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(0).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(1).toString(),Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ListActivity,iphone.getColumnName(2).toString(),Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(3).toString(),Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(4).toString(),Toast.LENGTH_SHORT).show()
+
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(1).toString(),Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(2).toString(),Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@ListActivity,iphone.getColumnName(3).toString(),Toast.LENGTH_SHORT).show()
+
+                }catch (ex:SQLiteException){
+                    Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
+                }
+            }
+
+        }
+
         // Add first Desc Time and Last Seen
         if (!result.device.name.isNullOrEmpty()) {
-
-
             if (checkMacAddress(result.device.address.toString())) {
                 val iBeacon = Beacon(
                     result.device.name.toString(),
                     result.device.address.toString(),
                     result.rssi.toString(),
-                    result.scanRecord?.serviceUuids.toString(),type,
+                    result.scanRecord?.serviceUuids.toString(),
+                    type,
                     BaseDevice(result).firstDiscovery,
                     BaseDevice(result).lastSeen
                 )
@@ -335,12 +445,23 @@ class ListActivity : AppCompatActivity() {
                 byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0xFF).toByte())).build()
 
         val TileFilter = ScanFilter.Builder().setServiceUuid(Tile.offlineFindingServiceUUID).build()
+
+
+        val AllDevFilter :ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+               null,
+                null).build()
+
+
         when (FilterCheck) {
             "AirPods" -> {
                 devfilters.add(0,APbluetoothFilter)
             }
             "Apple" -> {
                 devfilters.add(0,ADbluetoothFilter)
+                devfilters.add(1,AllDevFilter)
+
             }
             "IPhone" -> {
                 devfilters.add(0,PhonebluetoothFilter)
@@ -369,14 +490,6 @@ class ListActivity : AppCompatActivity() {
         val type = baseDev.deviceType
 //        val type = DeviceManager.getDeviceType(result)
 
-//        if (connectable!!) {
-//            if (type == DeviceType.AIRPODS && intent.getStringExtra("Category") == "AirPods") {
-//                resToBeacon(result, type)
-//            }
-//            if (type == DeviceType.AIRTAG && intent.getStringExtra("Category") == "AirTag") {
-//                resToBeacon(result, type)
-//            }
-//        } else {
         if (type == DeviceType.AIRPODS && intent.getStringExtra("Category") == "AirPods") {
             resToBeacon(result, type)
 
@@ -391,8 +504,9 @@ class ListActivity : AppCompatActivity() {
             resToBeacon(result, type)
 
             try {
-                //Add 7 function to 7 devices categories and add on each on click then add them to list
-                db!!.getAllIphoneDetail()
+                val iphone = db!!.getAllIphoneDetail()
+                Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+
             }catch (ex:SQLiteException){
                 Toast.makeText(this@ListActivity,"Failed to load Database",Toast.LENGTH_SHORT).show()
             }
@@ -447,22 +561,18 @@ class ListActivity : AppCompatActivity() {
             Log.e("LA", "not matching")
         }
 
-
-//        }
     }
 
 
     fun displayBeaconsList() {
-//        if (beacons.isNotEmpty()) {
-            beacons.sortBy { beacon -> beacon.rssi }
-            recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
-            layoutManager = LinearLayoutManager(this)
-            adapter = BeaconAdapter(this, beacons)
-            recyclerView!!.layoutManager = layoutManager
-            recyclerView!!.adapter = adapter
-            tx?.visibility = View.GONE
-            adapter!!.notifyDataSetChanged()
-//        }
+        beacons.sortBy { beacon -> beacon.rssi }
+        recyclerView = findViewById<View>(R.id.recycler) as RecyclerView
+        layoutManager = LinearLayoutManager(this)
+        adapter = BeaconAdapter(this, beacons)
+        recyclerView!!.layoutManager = layoutManager
+        recyclerView!!.adapter = adapter
+        tx?.visibility = View.GONE
+        adapter!!.notifyDataSetChanged()
     }
 
     fun checkMacAddress(address: String): Boolean {

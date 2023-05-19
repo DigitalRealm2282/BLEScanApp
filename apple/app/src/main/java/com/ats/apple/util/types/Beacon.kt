@@ -1,5 +1,9 @@
 package com.ats.apple.util.types
 
+import android.bluetooth.le.ScanResult
+import android.os.Build
+import androidx.annotation.RequiresApi
+import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
 import java.time.LocalDateTime
 import java.util.*
@@ -14,6 +18,7 @@ class Beacon(
         serialNumber = createSerialNumber(address)
 
     }
+
 
     private fun createSerialNumber(macAddress: String): String {
         val macAddressArray = macAddress.split(":".toRegex()).dropLastWhile { it.isEmpty() }
@@ -35,4 +40,6 @@ class Beacon(
         }
         return createdSerialNumber.toString()
     }
+
+
 }

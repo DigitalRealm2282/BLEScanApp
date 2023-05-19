@@ -23,6 +23,7 @@ import com.ats.apple.data.model.BaseDevice
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
 import com.ats.apple.util.Util
+import com.ats.apple.util.types.Beacon
 import com.ats.apple.util.types.Tile
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -50,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     var unkInt:Int?=null
     var TilesInt:Int?=null
     private var db :DBHelper?=null
+    private var Name :String?=null
 
     private val devfilters: MutableList<ScanFilter> = ArrayList()
 
@@ -79,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         setupUI()
         db = DBHelper(this, null)
 
+
 ////        db.addName()
 //        db.writableDatabase
 //
@@ -102,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         val cardAirTag = findViewById<MaterialCardView>(R.id.airtagsCard)
         val findMyDev = findViewById<MaterialCardView>(R.id.FMDCard)
         val appleDevCard = findViewById<MaterialCardView>(R.id.AppleDeviceCard)
+
 
 
         textBtn.setOnClickListener {
@@ -200,7 +204,6 @@ class MainActivity : AppCompatActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             val txt = findViewById<TextView>(R.id.text4)
-
 //            if (AirPodsMatcher.matches(result)){
 //                Toast.makeText(this@MainActivity,"Done",Toast.LENGTH_SHORT).show()
 //            }
@@ -274,27 +277,9 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission", "NewApi")
     private fun checkType(result: ScanResult){
-
         val baseDev = BaseDevice(result)
-
 //        val Type = baseDev.deviceType
         val Type = DeviceManager.getDeviceType(result)
-
-//        if (connectableDev!!){
-//            if (Type == DeviceType.AIRTAG){
-//                val textAT = findViewById<TextView>(R.id.atags)
-//                if (AirTagInt != null) AirTagInt!!.inc() else AirTagInt = 1
-//                textAT.text = AirTagInt.toString()
-//                Toast.makeText(this@MainActivity,"AirTag Detected",Toast.LENGTH_SHORT).show()
-//            }
-//            if (Type == DeviceType.AIRPODS){
-//                val textAp = findViewById<TextView>(R.id.APTextno)
-//                if (AIRPODSInt != null) AIRPODSInt!!.inc() else AIRPODSInt = 1
-//                textAp.text = AIRPODSInt.toString()
-//                Toast.makeText(this@MainActivity,"Airpods Detected",Toast.LENGTH_SHORT).show()
-//
-//            }
-//        }else{
         when (Type) {
                 DeviceType.AIRPODS -> {
                     val textAp = findViewById<TextView>(R.id.APTextno)
@@ -360,23 +345,46 @@ class MainActivity : AppCompatActivity() {
 
             }
 
-//        }
-
 
     }
 
-    @SuppressLint("NewApi")
+    @SuppressLint("NewApi", "MissingPermission")
     private fun AddDevToDatabase(result: ScanResult){
-        val dev = BaseDevice(result)
-        db!!.addDevice(result.scanRecord?.deviceName.toString()
-            ,result.device.address
-            ,result.rssi.toFloat()
-            ,dev.firstDiscovery.second.toString()
-            ,dev.lastSeen.second.toString()
-            ,dev.uniqueId!!
-            ,dev.deviceType!!)
+        if (!result.device.name.isNullOrEmpty()) {
+            val dev = BaseDevice(result)
+            db!!.addDevice(
+                result.device?.name.toString(),
+                result.device.address,
+                result.rssi.toFloat(),
+                dev.firstDiscovery.second.toString(),
+                dev.lastSeen.second.toString(),
+                dev.uniqueId!!,
+                dev.deviceType!!
+            )
+//            Toast.makeText(this@MainActivity,"Added",Toast.LENGTH_SHORT).show()
+        } else {
+        for (i in 0 until 1000) {
+            Name = "Device $i"
+
+        }
+            val dev = BaseDevice(result)
+            db!!.addDevice(
+                Name!!,
+                result.device.address,
+                result.rssi.toFloat(),
+                dev.firstDiscovery.second.toString(),
+                dev.lastSeen.second.toString(),
+                dev.uniqueId!!,
+                dev.deviceType!!
+            )
+//            Toast.makeText(this@MainActivity,"Added",Toast.LENGTH_SHORT).show()
+
+
+        }
+
 
     }
+
 
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -448,7 +456,7 @@ class MainActivity : AppCompatActivity() {
                 byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte()) // ff?
             )
             .build()
-        //Apple Dev
+        //Apple Find Dev
         val ADbluetoothFilter: ScanFilter = ScanFilter.Builder()
             .setManufacturerData(
                 0x4C,
@@ -488,6 +496,12 @@ class MainActivity : AppCompatActivity() {
 
         val TileFilter = ScanFilter.Builder().setServiceUuid(Tile.offlineFindingServiceUUID).build()
 
+        //All Apple
+        val AllDevFilter :ScanFilter = ScanFilter.Builder()
+            .setManufacturerData(
+                0x4C,
+                null, null).build()
+
         devfilters.add(0,ATbluetoothFilter)
         devfilters.add(1,ADbluetoothFilter)
         devfilters.add(2,APbluetoothFilter)
@@ -495,7 +509,7 @@ class MainActivity : AppCompatActivity() {
         devfilters.add(4,FMDFilter)
         devfilters.add(5,TileFilter)
         devfilters.add(6,unkFilter)
-//        devfilters.add(7,AllbluetoothFilter)
+        devfilters.add(7,AllDevFilter)
 
         return devfilters
 

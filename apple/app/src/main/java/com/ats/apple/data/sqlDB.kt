@@ -17,6 +17,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     override fun onCreate(db: SQLiteDatabase) {
         // below is a sqlite query, where column names
         // along with their data types is given
+        //Error Hereeeeeee
         val query = ("CREATE TABLE " + TABLE_NAME + " ("
                 + ID_COL + " INTEGER PRIMARY KEY, " +
                 NAME_COl + " TEXT," +
@@ -100,7 +101,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
 
         // below code returns a cursor to
         // read data from the database
-        return db.rawQuery("SELECT * FROM " + TABLE_NAME, null)
+        return db.rawQuery("SELECT * FROM $TABLE_NAME", null)
 
     }
 
@@ -112,10 +113,11 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         if (cursor.moveToFirst()) {
             do {
 
+//                cursor.getString(0)
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
         }
-        cursor.close()
+
         return data
     }
     fun getAllAirTagDetail(): Array<String?>? {
@@ -176,8 +178,8 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         cursor.close()
         return data
     }
-    fun getAllAppleDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE DevType = Apple_Device "
+    fun getAllAppleDetail(): Cursor? {
+        val selectQuery = "SELECT  * FROM $TABLE_NAME "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: Array<String?>? = null
@@ -187,8 +189,8 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
         }
-        cursor.close()
-        return data
+//        cursor.close()
+        return  cursor
     }
 
     fun getAllTilesDetail(): Array<String?>? {
@@ -229,7 +231,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         private val DATABASE_NAME = "BaseDevices"
 
         // below is the variable for database version
-        private val DATABASE_VERSION = 1
+        private val DATABASE_VERSION = 2
 
         // below is the variable for table name
         val TABLE_NAME = "devices_table"
