@@ -7,7 +7,6 @@ import android.bluetooth.le.*
 import android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY
 import android.content.*
 import android.content.pm.PackageManager
-import android.database.sqlite.SQLiteDatabase
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -19,14 +18,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.ats.apple.data.DBHelper
-import com.ats.apple.data.model.BaseDevice
 import com.ats.apple.data.DeviceManager
 import com.ats.apple.data.DeviceType
+import com.ats.apple.data.model.BaseDevice
 import com.ats.apple.util.Util
 import com.ats.apple.util.types.Beacon
 import com.ats.apple.util.types.Tile
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import io.cryptolens.methods.Helpers
+import io.cryptolens.methods.Key
+import io.cryptolens.models.ActivateModel
+import io.cryptolens.models.LicenseKey
 import kotlinx.coroutines.*
 
 
@@ -84,7 +87,29 @@ class MainActivity : AppCompatActivity() {
         checkBTPerms()
         setupUI()
         db = DBHelper(this, null)
+//        cryptoLensKeys()
 
+    }
+    private fun cryptoLensKeys(){
+        val RSAPubKey = "Enter the RSA Public key here. Click here to view it."
+        val auth =
+            "Access token with permission to access the activate method. Click here to view it."
+
+        val license: LicenseKey = Key.Activate(
+            auth, RSAPubKey,
+            ActivateModel(
+                3349,  // <--  remember to change this to your Product Id
+                "ICVLD-VVSZR-ZTICT-YKGXL",  // <--  remember to change this to your license key
+                Helpers.GetMachineCode(2)
+            )
+        )
+
+        if (license == null || !Helpers.IsOnRightMachine(license, 2)) {
+            println("The license does not work.")
+        } else {
+            println("The license is valid!")
+            println("It will expire: " + license.Expires)
+        }
     }
 
     fun addBeacon(iBeacon: Beacon) {
