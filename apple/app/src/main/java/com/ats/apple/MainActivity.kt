@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity() {
     var TilesInt:Int?=null
     private var db :DBHelper?=null
     private var Name :String?=null
+    private var beacons: ArrayList<Beacon>?= null
+
 
     private val devfilters: MutableList<ScanFilter> = ArrayList()
 
@@ -77,22 +79,28 @@ class MainActivity : AppCompatActivity() {
 
         checkAllPerms(this,this.applicationContext)
         sdkhigh(this.applicationContext,this)
+        beacons = ArrayList()
+
         checkBTPerms()
         setupUI()
         db = DBHelper(this, null)
 
+    }
 
-////        db.addName()
-//        db.writableDatabase
-//
-////        db.updateCourse()
-//        val cursor = db.getName()
-//        cursor!!.moveToFirst()
-////        Name.append(cursor.getString(cursor.getColumnIndex(DBHelper.NAME_COl)) + "\n")
-//
-//        // moving the cursor to first position and
-//        // appending value in the text view
-//        cursor!!.count
+    fun addBeacon(iBeacon: Beacon) {
+        if (beacons!!.isNotEmpty()) {
+            val it: MutableIterator<Beacon> = beacons!!.iterator() as MutableIterator<Beacon>
+            while (it.hasNext()) {
+                val beacon = it.next()
+                val addressBeacon = beacon.address
+                val addressIBeacon = iBeacon.address
+                val bool = addressBeacon == addressIBeacon
+                if (bool) {
+                    it.remove()
+                }
+            }
+        }
+        beacons!!.add(iBeacon)
     }
 
     @SuppressLint("MissingPermission")
@@ -190,25 +198,13 @@ class MainActivity : AppCompatActivity() {
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e("Error", "Scan Failed: $errorCode")
-//            val view = findViewById<ConstraintLayout>(R.id.constraintll)
-//            view.let {
-//                Snackbar.make(
-//                    it,
-//                    R.string.ble_service_connection_error,
-//                    Snackbar.LENGTH_LONG
-//                )
-//            }
         }
 
 
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             val txt = findViewById<TextView>(R.id.text4)
-//            if (AirPodsMatcher.matches(result)){
-//                Toast.makeText(this@MainActivity,"Done",Toast.LENGTH_SHORT).show()
-//            }
 
-//            txt.text = result!!.device.type!!.toUInt().toString()
 
             GlobalScope.launch(Dispatchers.Main) {
                 if (result != null)
@@ -219,80 +215,25 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-//    fun addOrRemoveFilter(filter: Filter, remove: Boolean = false) {
-//        val filterName = filter::class.toString()
-//        if (remove) {
-//            activeFilter.remove(filterName)
-//        } else {
-//            activeFilter[filterName] = filter
-//        }
-//
-//        updateDeviceList()
-////        Timber.d("Active Filter: $activeFilter")
-//        updateFilterSummaryText()
-//    }
-
-//    private fun updateDeviceList() {
-//        deviceRepository = DeviceRepository(DeviceDao)
-//        devices.addSource(deviceRepository.devices.asLiveData()) {
-//            var filteredDevices = it
-//            activeFilter.forEach { (_, filter) ->
-//                filteredDevices = filter.apply(filteredDevices)
-//            }
-//            devices.value = filteredDevices
-//        }
-//    }
-
-//    private fun updateFilterSummaryText() {
-//        val filterStringBuilder = StringBuilder()
-//        val context = this.applicationContext
-//        // No filters option
-//        if (activeFilter.containsKey(IgnoredFilter::class.toString())) {
-//            filterStringBuilder.append(context.getString(R.string.ignored_devices))
-//            filterStringBuilder.append(", ")
-//        }
-//
-//        if (activeFilter.containsKey(NotifiedFilter::class.toString())) {
-//            filterStringBuilder.append(context.getString(R.string.tracker_detected))
-//            filterStringBuilder.append(", ")
-//        }
-//
-//        if (activeFilter.containsKey(DeviceTypeFilter::class.toString())) {
-//            val deviceTypeFilter = activeFilter[DeviceTypeFilter::class.toString()] as DeviceTypeFilter
-//            for (device in deviceTypeFilter.deviceTypes) {
-//                filterStringBuilder.append(DeviceType.userReadableName(device))
-//                filterStringBuilder.append(", ")
-//            }
-//            if (deviceTypeFilter.deviceTypes.count() > 0) {
-//                filterStringBuilder.delete(filterStringBuilder.length-2, filterStringBuilder.length-1)
-//            }
-//        }else {
-//            // All devices
-//            filterStringBuilder.append(context.getString(R.string.title_device_map))
-//        }
-//
-//        filterSummaryText.postValue(filterStringBuilder.toString())
-//    }
-
 
     @SuppressLint("MissingPermission", "NewApi")
     private fun checkType(result: ScanResult){
         val baseDev = BaseDevice(result)
 //        val Type = baseDev.deviceType
         val Type = DeviceManager.getDeviceType(result)
+        AddDevToDatabase(result)
+
         when (Type) {
                 DeviceType.AIRPODS -> {
                     val textAp = findViewById<TextView>(R.id.APTextno)
                     if (AIRPODSInt != null) AIRPODSInt!!.inc() else AIRPODSInt = 1
                     textAp.text = AIRPODSInt.toString()
-                    AddDevToDatabase(result)
                 }
 
                 DeviceType.IPhone -> {
                     val textAD = findViewById<TextView>(R.id.iphoneTextno)
                     if (IphoneInt != null) IphoneInt!!.inc() else IphoneInt = 1
                     textAD.text = IphoneInt.toString()
-                    AddDevToDatabase(result)
 
                 }
 
@@ -300,9 +241,6 @@ class MainActivity : AppCompatActivity() {
                     val textAT = findViewById<TextView>(R.id.atags)
                     if (AirTagInt != null) AirTagInt!!.inc() else AirTagInt = 1
                     textAT.text = AirTagInt.toString()
-                    AddDevToDatabase(result)
-
-//                    Toast.makeText(this@MainActivity, "AirTag Detected", Toast.LENGTH_SHORT).show()
 
                 }
 
@@ -310,7 +248,6 @@ class MainActivity : AppCompatActivity() {
                     val textFMD = findViewById<TextView>(R.id.findMyDev)
                     if (FMDInt != null) FMDInt!!.inc() else FMDInt = 1
                     textFMD.text = FMDInt.toString()
-                    AddDevToDatabase(result)
 
                 }
 
@@ -318,7 +255,6 @@ class MainActivity : AppCompatActivity() {
                     val textTile = findViewById<TextView>(R.id.tileFoundText)
                     if (TilesInt != null) TilesInt!!.inc() else TilesInt = 1
                     textTile.text = TilesInt.toString()
-                    AddDevToDatabase(result)
 
                 }
 
@@ -326,7 +262,6 @@ class MainActivity : AppCompatActivity() {
                     val textADT = findViewById<TextView>(R.id.AppleDevText)
                     if (ADInt != null) ADInt!!.inc() else ADInt = 1
                     textADT.text = ADInt.toString()
-                    AddDevToDatabase(result)
 
                 }
 
@@ -334,54 +269,92 @@ class MainActivity : AppCompatActivity() {
                     val textund = findViewById<TextView>(R.id.unkDevText)
                     if (unkInt != null) unkInt!!.inc() else unkInt = 1
                     textund.text = unkInt.toString()
-                    AddDevToDatabase(result)
 
                 }
 
                 else -> {
 
-
                 }
+        }
+    }
 
+    @SuppressLint("MissingPermission", "NewApi")
+    private fun resultToBeacon(result: ScanResult): Beacon? {
+        // Add first Desc Time and Last Seen
+        var beacon :Beacon ?=null
+        if (!result.device.name.isNullOrEmpty()) {
+
+            val iBeacon = Beacon(
+                result.device.name.toString(),
+                result.device.address.toString(),
+                result.rssi.toString(),
+                result.scanRecord?.serviceUuids.toString(),
+                BaseDevice(result).deviceType!!,
+                BaseDevice(result).firstDiscovery.second.toString(),
+                BaseDevice(result).lastSeen.second.toString()
+            )
+            addBeacon(iBeacon)
+            beacon = iBeacon
+
+        }else{
+            for (i in 0 until beacons!!.size+1) {
+                Name = "Device $i"
             }
 
+            if ( Name != null && Name != "null") {
+                val iBeacon = Beacon(
+                    Name.toString(),
+                    result.device.address.toString(),
+                    result.rssi.toString(),
+                    result.scanRecord?.serviceUuids.toString(), BaseDevice(result).deviceType!!,
+                    BaseDevice(result).firstDiscovery.second.toString(),
+                    BaseDevice(result).lastSeen.second.toString()
+                )
+                addBeacon(iBeacon)
+                beacon= iBeacon
 
+            }
+        }
+        return beacon
     }
 
     @SuppressLint("NewApi", "MissingPermission")
     private fun AddDevToDatabase(result: ScanResult){
-        if (!result.device.name.isNullOrEmpty()) {
-            val dev = BaseDevice(result)
-            db!!.addDevice(
-                result.device?.name.toString(),
-                result.device.address,
-                result.rssi.toFloat(),
-                dev.firstDiscovery.second.toString(),
-                dev.lastSeen.second.toString(),
-                dev.uniqueId!!,
-                dev.deviceType!!
-            )
-//            Toast.makeText(this@MainActivity,"Added",Toast.LENGTH_SHORT).show()
-        } else {
-        for (i in 0 until 1000) {
-            Name = "Device $i"
+        val ind = beacons!!.indexOf(resultToBeacon(result))
+        val mac = beacons!![ind].serialNumber.replace(":","")
+        //Edit this to false and add ! this in final version
+        if (!db?.CheckIsDataAlreadyInDBorNot("devices_table","SerialNumber",mac)!!) {
 
+            if (!result.device.name.isNullOrEmpty()) {
+                val dev = BaseDevice(result)
+                db!!.addDevice(
+                    result.device?.name.toString(),
+                    result.device.address.replace(":",""),
+                    result.rssi.toFloat(),
+                    dev.firstDiscovery.second.toString(),
+                    dev.lastSeen.second.toString(),
+                    dev.uniqueId!!,
+                    dev.deviceType!!
+                )
+
+            } else {
+                for (i in 0 until beacons!!.size+1) {
+                    Name = "Device $i"
+
+                }
+                val dev = BaseDevice(result)
+                db!!.addDevice(
+                    Name!!,
+                    result.device.address.replace(":",""),
+                    result.rssi.toFloat(),
+                    dev.firstDiscovery.second.toString(),
+                    dev.lastSeen.second.toString(),
+                    dev.uniqueId!!,
+                    dev.deviceType!!
+                )
+
+            }
         }
-            val dev = BaseDevice(result)
-            db!!.addDevice(
-                Name!!,
-                result.device.address,
-                result.rssi.toFloat(),
-                dev.firstDiscovery.second.toString(),
-                dev.lastSeen.second.toString(),
-                dev.uniqueId!!,
-                dev.deviceType!!
-            )
-//            Toast.makeText(this@MainActivity,"Added",Toast.LENGTH_SHORT).show()
-
-
-        }
-
 
     }
 
@@ -585,6 +558,7 @@ class MainActivity : AppCompatActivity() {
         TilesInt =null
         m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
         m_bluetoothAdapter = null
+        db?.close()
 
         devfilters.clear()
 //        unregisterReceiver(mReceiver)

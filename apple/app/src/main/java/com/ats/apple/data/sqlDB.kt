@@ -1,13 +1,13 @@
 package com.ats.apple.data
 
 import android.annotation.SuppressLint
-import android.bluetooth.le.ScanResult
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.ats.apple.data.model.BaseDevice
+import androidx.core.database.getStringOrNull
+import androidx.room.RoomMasterTable
 import com.ats.apple.util.types.AirPods
 import com.ats.apple.util.types.AirTag
 import com.ats.apple.util.types.Beacon
@@ -24,16 +24,15 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     override fun onCreate(db: SQLiteDatabase) {
         // below is a sqlite query, where column names
         // along with their data types is given
-        //Error Hereeeeeee
         val query = ("CREATE TABLE " + TABLE_NAME + " ("
                 + ID_COL + " INTEGER PRIMARY KEY, " +
                 NAME_COl + " TEXT," +
-                sn + " TEXT," +
-                rssi + " FLOAT, " +
-                firstSeen + " TEXT," +
-                lastSeen + " TEXT," +
-                uid + " TEXT," +
-                DeviceType + " TEXT"+")")
+                SERIALKEY + " TEXT," +
+                SIGNALKEY + " FLOAT, " +
+                FSEENKEY + " TEXT, " +
+                LSEENKEY + " TEXT, " +
+                UIDKEY + " TEXT, " +
+                TYPEKEY + " TEXT )")
 
         // we are calling sqlite
         // method for executing our query
@@ -46,6 +45,64 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         onCreate(db)
     }
 
+    fun CheckIsDataAlreadyInDBorNot(
+        TableName: String,
+        dbfield: String, fieldValue: String
+    ): Boolean {
+        val sqldb: SQLiteDatabase = this.readableDatabase
+        val Query = "Select * from $TableName where $dbfield = $fieldValue"
+        val cursor = sqldb.rawQuery(Query, null)
+        if (cursor.count <= 0) {
+            cursor.close()
+            return false
+        }
+        cursor.close()
+        return true
+    }
+
+    fun Exists(searchItem: String): Boolean {
+        val columns = arrayOf<String>(SERIALKEY)
+        val selection: String = "$SERIALKEY =?"
+        val selectionArgs = arrayOf(searchItem)
+        val limit = "1"
+        val cursor: Cursor = this.readableDatabase.query(
+            TABLE_NAME,
+            columns,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null,
+            limit
+        )
+        val exists = cursor.count > 0
+        cursor.close()
+        return exists
+    }
+
+//    fun checkDuplicate(beacon: Beacon):Boolean {
+//        try {
+//            val db = this.writableDatabase
+//            val address = beacon.address.replace(":","")
+//            val c = db.rawQuery("SELECT * FROM $TABLE_NAME WHERE $SERIALKEY = $address", null)
+//
+//            if (c.moveToFirst()) {
+////            showMessage("Error", "Record exist");
+//                c.close()
+//                return false
+//            } else {
+//                // Inserting record
+//                c.close()
+//                return true
+//            }
+//        }catch (ex:SQLiteException){
+//            Log.e("SqlLite",ex.message.toString())
+//
+//        }
+//        return false
+//
+//    }
+
     // This method is for adding data in our database
     fun addDevice(name : String, Serial : String, Rssi:Float, FS:String, LS:String,uuid:String,type: DeviceType){
 
@@ -56,12 +113,12 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         // we are inserting our values
         // in the form of key-value pair
         values.put(NAME_COl, name)
-        values.put(sn, Serial)
-        values.put(rssi,Rssi)
-        values.put(firstSeen,FS)
-        values.put(lastSeen,LS)
-        values.put(uid,uuid)
-        values.put(DeviceType,type.name)
+        values.put(SERIALKEY, Serial)
+        values.put(SIGNALKEY,Rssi)
+        values.put(FSEENKEY,FS)
+        values.put(LSEENKEY,LS)
+        values.put(UIDKEY,uuid)
+        values.put(TYPEKEY,type.name)
 
 
         // here we are creating a
@@ -90,10 +147,10 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         // on below line we are passing all values
         // along with its key and value pair.
         values.put(NAME_COl, name)
-        values.put(sn, Serial)
-        values.put(rssi,Rssi)
-        values.put(firstSeen,FS)
-        values.put(lastSeen,LS)
+        values.put(SERIALKEY, Serial)
+        values.put(SIGNALKEY,Rssi)
+        values.put(FSEENKEY,FS)
+        values.put(LSEENKEY,LS)
 
         // on below line we are calling a update method to update our database and passing our values.
         // and we are comparing it with name of our course which is stored in original name variable.
@@ -117,137 +174,104 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
 
     }
 
-    fun getAllIphoneDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${IPhoneDevice.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
+
+    @SuppressLint("Range")
+    fun getSpecificType(type: DeviceType): MutableList<Beacon>? {
+        val typeName = type.name
+        val sqldb: SQLiteDatabase = this.readableDatabase
+        val Query = "Select * from $TABLE_NAME where $TYPEKEY = $typeName"
+        val cursor = sqldb.rawQuery(Query, null)
+        val data: MutableList<Beacon>? = null
+
         if (cursor.moveToFirst()) {
             do {
 
-//                cursor.getString(0)
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
+                val name = cursor.getString(cursor.getColumnIndex(NAME_COl))
+                val add = cursor.getString(cursor.getColumnIndex(SERIALKEY))
+                val rssi = cursor.getString(cursor.getColumnIndex(SIGNALKEY))
+                val fs = cursor.getString(cursor.getColumnIndex(FSEENKEY))
+                val ls = cursor.getString(cursor.getColumnIndex(LSEENKEY))
+                val uid = cursor.getString(cursor.getColumnIndex(UIDKEY))
+                val type = cursor.getString(cursor.getColumnIndex(TYPEKEY))
+                val dev:DeviceType = when (type) {
+                    "IPhone" -> DeviceType.APPLE
+                    "UNKNOWN" -> DeviceType.UNKNOWN
+                    "AIRPODS" -> DeviceType.AIRPODS
+                    "AIRTAG" -> DeviceType.AIRTAG
+                    "TILE" -> DeviceType.TILE
+                    "APPLE" -> DeviceType.APPLE
+                    "FIND_MY" -> DeviceType.FIND_MY
+                    else -> DeviceType.UNKNOWN
+                }
 
-        return data
-    }
-    fun getAllAirTagDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${AirTag.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
-    }
-    fun getAllAirPodsDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${AirPods.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
+                data?.add(Beacon(name!!,add!!,rssi.toString(),uid!!,dev,fs!!,ls!!))
+//                data.add(Beacon())
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
         }
         cursor.close()
         return data
-    }
 
-    fun getAllDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME"
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
-    }
-
-    fun getAllUnknownDetails(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${Unknown.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
-    }
-    fun getAllAppleDetail(): Cursor? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-//        cursor.close()
-        return  cursor
-    }
-
-    fun getAllTilesDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${Tile.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
-    }
-
-    fun getAllFindMyDetail(): Array<String?>? {
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $DeviceType = ${FindMy.deviceType.name} "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: Array<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                cursor.getColumnIndex("DevType")
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
     }
 
     @SuppressLint("Range")
+    fun getAllDetail(): MutableList<Beacon?>? {
+        val selectQuery = "SELECT * FROM $TABLE_NAME"
+        val db: SQLiteDatabase = this.readableDatabase
+        val cursor = db.rawQuery(selectQuery, null)
+        val data: MutableList<Beacon?>? = null
+        if (cursor.moveToFirst()) {
+            do {
+
+                val name = cursor.getString(cursor.getColumnIndex(NAME_COl))
+                val add = cursor.getString(cursor.getColumnIndex(SERIALKEY))
+                val rssi = cursor.getString(cursor.getColumnIndex(SIGNALKEY))
+                val fs = cursor.getString(cursor.getColumnIndex(FSEENKEY))
+                val ls = cursor.getString(cursor.getColumnIndex(LSEENKEY))
+                val uid = cursor.getString(cursor.getColumnIndex(UIDKEY))
+                val type = cursor.getString(cursor.getColumnIndex(TYPEKEY))
+                val dev:DeviceType = when (type) {
+                    "IPhone" -> DeviceType.APPLE
+                    "UNKNOWN" -> DeviceType.UNKNOWN
+                    "AIRPODS" -> DeviceType.AIRPODS
+                    "AIRTAG" -> DeviceType.AIRTAG
+                    "TILE" -> DeviceType.TILE
+                    "APPLE" -> DeviceType.APPLE
+                    "FIND_MY" -> DeviceType.FIND_MY
+                    else -> DeviceType.UNKNOWN
+                }
+
+
+
+                data?.add(Beacon(name!!,add!!,rssi.toString(),uid!!,dev,fs!!,ls!!))
+//                data.add(Beacon())
+                // get the data into array, or class variable
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        return data
+    }
+
+
+    @SuppressLint("Range")
     fun getDev(beacon:Beacon): MutableList<String?>? {
-        val device = beacon
-        val uuid = device.uuids
-        val selectQuery = "SELECT  * FROM $TABLE_NAME WHERE $uid = $uuid "
+        val deviceUID = beacon.uuids
+        val selectQuery = "SELECT * FROM $TABLE_NAME WHERE $UIDKEY = $deviceUID "
         val db: SQLiteDatabase = this.readableDatabase
         val cursor = db.rawQuery(selectQuery, null)
         val data: MutableList<String?>? = null
         if (cursor.moveToFirst()) {
             do {
+
+                val name = cursor.getString(cursor.getColumnIndex(NAME_COl))
+                val add = cursor.getString(cursor.getColumnIndex(SERIALKEY))
+                val rssi = cursor.getString(cursor.getColumnIndex(SIGNALKEY))
+                val fs = cursor.getString(cursor.getColumnIndex(FSEENKEY))
+                val ls = cursor.getString(cursor.getColumnIndex(LSEENKEY))
+                val uid = cursor.getString(cursor.getColumnIndex(UIDKEY))
+                val type = cursor.getString(cursor.getColumnIndex(TYPEKEY))
 //                val type = cursor.getString(cursor.getColumnIndex(devType.name))
-                val uuid = cursor.getString(cursor.getColumnIndex(uid))
+                val uuid = cursor.getString(cursor.getColumnIndex(UIDKEY))
 //                data.add(0,Beacon(type,)))
 //                data?.add(0,type)
                 data?.add(0,uuid)
@@ -261,32 +285,34 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     }
 
 
+
+
     companion object{
         // here we have defined variables for our database
 
         // below is variable for database name
-        private val DATABASE_NAME = "BaseDevices"
+        private const val DATABASE_NAME = "BaseDevices"
 
         // below is the variable for database version
-        private val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 8
 
         // below is the variable for table name
-        val TABLE_NAME = "devices_table"
+        const val TABLE_NAME = "devices_table"
 
         // below is the variable for id column
-        val ID_COL = "id"
+        const val ID_COL = "id"
 
         // below is the variable for name column
-        val NAME_COl = "name"
+        const val NAME_COl = "name"
 
         // below is the variable for age column
-        val sn = "SerialNumebr"
+        const val SERIALKEY = "SerialNumber"
 
-        val rssi = "rssi"
-        val firstSeen = "FirstSeen"
-        val lastSeen = "lastSeen"
-        val uid = "Uuid"
-        val DeviceType = "DevType"
+        const val SIGNALKEY = "rssi"
+        const val FSEENKEY = "FirstSeen"
+        const val LSEENKEY = "lastSeen"
+        const val UIDKEY = "Uuid"
+        const val TYPEKEY = "DevType"
 
 
     }

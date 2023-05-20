@@ -35,7 +35,7 @@ class BeaconAdapter(context: Context, beacons: List<Beacon>) :
 
         holder.nameView.text = beacons[position].name
         holder.serialNumberView.text = beacons[position].serialNumber
-        holder.rssiView.text = beacons[position].rssi
+        holder.rssiView.text = "Signal : "+beacons[position].rssi
         holder.fd.text = "First seen : "+beacons[position].firstDiscovery.toString()
         holder.ls.text = "Last seen : "+beacons[position].lastSeen.toString()
 
@@ -88,7 +88,7 @@ class BeaconAdapter(context: Context, beacons: List<Beacon>) :
             intent.putExtra("rssi", beacon.rssi)
             intent.putExtra("uuids", beacon.uuids)
             intent.putExtra("serialNumber", beacon.serialNumber)
-            intent.putExtra("Type",beacon.type.name)
+            intent.putExtra("Type",beacon.type?.name)
             context.startActivity(intent)
         }
     }
