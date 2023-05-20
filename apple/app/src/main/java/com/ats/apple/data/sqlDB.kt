@@ -60,25 +60,25 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         return true
     }
 
-    fun Exists(searchItem: String): Boolean {
-        val columns = arrayOf<String>(SERIALKEY)
-        val selection: String = "$SERIALKEY =?"
-        val selectionArgs = arrayOf(searchItem)
-        val limit = "1"
-        val cursor: Cursor = this.readableDatabase.query(
-            TABLE_NAME,
-            columns,
-            selection,
-            selectionArgs,
-            null,
-            null,
-            null,
-            limit
-        )
-        val exists = cursor.count > 0
-        cursor.close()
-        return exists
-    }
+//    fun Exists(searchItem: String): Boolean {
+//        val columns = arrayOf<String>(SERIALKEY)
+//        val selection: String = "$SERIALKEY =?"
+//        val selectionArgs = arrayOf(searchItem)
+//        val limit = "1"
+//        val cursor: Cursor = this.readableDatabase.query(
+//            TABLE_NAME,
+//            columns,
+//            selection,
+//            selectionArgs,
+//            null,
+//            null,
+//            null,
+//            limit
+//        )
+//        val exists = cursor.count > 0
+//        cursor.close()
+//        return exists
+//    }
 
 //    fun checkDuplicate(beacon: Beacon):Boolean {
 //        try {

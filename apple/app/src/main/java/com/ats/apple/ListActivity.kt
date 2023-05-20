@@ -4,9 +4,6 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Intent
-import android.database.Cursor
-import android.database.sqlite.SQLiteCursor
-import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
 import android.os.Build
 import android.os.Bundle
@@ -59,6 +56,8 @@ class ListActivity : AppCompatActivity() {
     private var adapter: RecyclerView.Adapter<*>? = null
     private lateinit var beacons: ArrayList<Beacon>
     private var db :DBHelper?=null
+    var devicesDB:MutableList<Beacon>?=null
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -221,22 +220,18 @@ class ListActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission", "NewApi")
     private fun resToBeacon(result: ScanResult,type: DeviceType){
+        devicesDB = beacons
         when(type.name){
             IPhoneDevice.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val IPhoneDevice = db!!.getSpecificType(DeviceType.IPhone)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
-
+                    devicesDB = db!!.getSpecificType(DeviceType.IPhone)!!
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
                 }
             }
             AirPods.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val airPods = db!!.getSpecificType(DeviceType.AIRPODS)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.AIRPODS)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
@@ -244,9 +239,7 @@ class ListActivity : AppCompatActivity() {
             }
             AirTag.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val airTag = db!!.getSpecificType(DeviceType.AIRTAG)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.AIRTAG)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
@@ -254,9 +247,7 @@ class ListActivity : AppCompatActivity() {
             }
             AppleDevice.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val apple = db!!.getSpecificType(DeviceType.APPLE)
-//                    Toast.makeText(this@ListActivity,iphone?.getColumnName(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.APPLE)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
@@ -264,9 +255,7 @@ class ListActivity : AppCompatActivity() {
             }
             FindMy.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val findMy = db!!.getSpecificType(DeviceType.FIND_MY)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.FIND_MY)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
@@ -274,9 +263,7 @@ class ListActivity : AppCompatActivity() {
             }
             Tile.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val tile = db!!.getSpecificType(DeviceType.TILE)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.TILE)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
@@ -284,31 +271,19 @@ class ListActivity : AppCompatActivity() {
             }
             Unknown.deviceType.name->{
                 try {
-                    //Add 7 function to 7 devices categories and add on each on click then add them to list
-                    val unknown = db!!.getSpecificType(DeviceType.UNKNOWN)
-//                    Toast.makeText(this@ListActivity,iphone?.get(0).toString(),Toast.LENGTH_SHORT).show()
+                    devicesDB = db!!.getSpecificType(DeviceType.UNKNOWN)!!
 
                 }catch (ex:SQLiteException){
                     Log.e("DataBaseLA",ex.message.toString())
                 }
             }
             else -> {
-                try {
-                    Log.e("LA","No Devices in Db")
-
-                }catch (ex:SQLiteException){
-                    Log.e("DataBaseLA",ex.message.toString())
-                }
+                Log.e("LA","No Devices in Db")
             }
         }
 
         // Add first Discovery Time and Last Seen
         if (!result.device.name.isNullOrEmpty()) {
-
-            val iphone = db!!.getAllDetail()
-            iphone?.forEach {
-                addBeacon(it!!)
-            }
 
             if (checkMacAddress(result.device.address.toString())) {
                 val iBeacon = Beacon(
@@ -333,13 +308,6 @@ class ListActivity : AppCompatActivity() {
 
             if (checkMacAddress(result.device.address.toString())&& Name != null && Name != "null") {
 
-
-                val iphone = db!!.getAllDetail()
-                iphone?.forEach {
-                    addBeacon(it!!)
-
-                }
-
                 val iBeacon = Beacon(
                     Name.toString(),
                     result.device.address.toString(),
@@ -354,6 +322,9 @@ class ListActivity : AppCompatActivity() {
 
             }
         }
+        devicesDB!!.forEach {
+            addBeacon(it)
+        }
 
         adapter!!.notifyDataSetChanged()
     }
@@ -361,15 +332,17 @@ class ListActivity : AppCompatActivity() {
     @SuppressLint("NewApi")
     private fun checkLastSeen(beacon: Beacon){
         try {
-            if (beacon.uuids == db?.getDev(beacon)?.get(0)) {
-                db?.updateCourse(
-                    "devices_table",
-                    beacon.name,
-                    beacon.serialNumber,
-                    beacon.rssi!!.toFloat(),
-                    beacon.firstDiscovery.toString(),
-                    beacon.lastSeen.toString()
-                )
+            devicesDB?.forEach {
+                if (beacon.address.replace(":", "") == it.serialNumber || beacon.address.replace(":", "") == it.address) {
+                    db?.updateCourse(
+                        "devices_table",
+                        beacon.name,
+                        beacon.serialNumber,
+                        beacon.rssi!!.toFloat(),
+                        beacon.firstDiscovery.toString(),
+                        beacon.lastSeen.toString()
+                    )
+                }
             }
         }catch (ex:Exception){Log.e("LA",ex.message.toString())}
     }
@@ -480,7 +453,6 @@ class ListActivity : AppCompatActivity() {
         }
         beacons.add(iBeacon)
     }
-
 
 //    @SuppressLint("MissingPermission")
 //    fun connectToDevice(device: BluetoothDevice) {
