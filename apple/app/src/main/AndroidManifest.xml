@@ -4,38 +4,25 @@
 
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
-    <uses-permission
-        android:name="android.permission.BLUETOOTH" />
-    <uses-permission
-        android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission
-        android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
-    <uses-permission
-        android:name="Manifest.permission.BLUETOOTH_PRIVILEGED"/>
-
+    <uses-permission android:name="Manifest.permission.BLUETOOTH_PRIVILEGED"/>
     <uses-feature
         android:name="android.hardware.bluetooth"
         android:required="false" />
-
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
-
-
     <!-- Needed only if your app looks for Bluetooth devices. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
     <uses-permission android:name="android.permission.ACCESS_LOCATION_EXTRA_COMMANDS"/>
-
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -49,12 +36,15 @@
         tools:targetApi="31">
         <activity
             android:name=".DeviceDetailsActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".ListActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
+            android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
