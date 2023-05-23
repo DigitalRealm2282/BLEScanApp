@@ -6,8 +6,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:id="@+id/refreshCl"
+    android:keepScreenOn="true"
     android:layout_height="match_parent"
-    tools:context=".DeviceDetailsActivity">
+    tools:context="com.ats.airflagger.DeviceDetailsActivity">
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
