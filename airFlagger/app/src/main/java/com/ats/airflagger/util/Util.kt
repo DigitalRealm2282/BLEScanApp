@@ -46,8 +46,11 @@ object Util {
         }
     }
 
-    fun checkBluetoothPermission(context: Context): Boolean {
+    fun checkBluetoothPermissionScan(context: Context): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||  ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+    }
+    fun checkBluetoothPermissionConnect(context: Context): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||  ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
     }
 
 //    fun enableMyLocationOverlay(

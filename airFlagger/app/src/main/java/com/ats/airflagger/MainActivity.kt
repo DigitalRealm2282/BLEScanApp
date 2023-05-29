@@ -17,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModelProvider
 import com.ats.airflagger.data.DBHelper
 import com.ats.airflagger.data.DeviceManager
 import com.ats.airflagger.data.DeviceType
@@ -24,7 +26,7 @@ import com.ats.airflagger.data.model.BaseDevice
 import com.ats.airflagger.util.Util
 import com.ats.airflagger.util.types.Beacon
 import com.ats.airflagger.util.types.Tile
-import com.ats.airflagger.R
+import com.ats.airflagger.viewModel.MainActivityViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import io.cryptolens.methods.Helpers
@@ -34,7 +36,7 @@ import io.cryptolens.models.LicenseKey
 import kotlinx.coroutines.*
 
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(),LifecycleOwner {
 
     private var m_bluetoothAdapter: BluetoothAdapter? = null
     private val SCAN_PERIOD: Long = 5000
@@ -65,6 +67,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private val devfilters: MutableList<ScanFilter> = ArrayList()
+    lateinit var viewModel:MainActivityViewModel
 
 //    val IphoneMatcher = ScanFilter.Builder().setManufacturerData(
 //        0x4C,
@@ -86,11 +89,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        checkAllPerms(this,this.applicationContext)
+        viewModel = ViewModelProvider(this).get(MainActivityViewModel::class.java)
         sdkhigh(this.applicationContext,this)
-        beacons = ArrayList()
-
+        checkAllPerms(this,this.applicationContext)
         checkBTPerms()
+
+        beacons = ArrayList()
         setupUI()
         db = DBHelper(this, null)
 //        cryptoLensKeys()
@@ -118,24 +122,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     fun addBeacon(iBeacon: Beacon) {
-        if (beacons!!.isNotEmpty()) {
-            val it: MutableIterator<Beacon> = beacons!!.iterator() as MutableIterator<Beacon>
-            while (it.hasNext()) {
-                val beacon = it.next()
-                val addressBeacon = beacon.address
-                val addressIBeacon = iBeacon.address
-                val bool = addressBeacon == addressIBeacon
-                if (bool) {
-                    it.remove()
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                if (beacons!!.isNotEmpty()) {
+                    val it: MutableIterator<Beacon> =
+                        beacons!!.iterator()
+                    while (it.hasNext()) {
+                        val beacon = it.next()
+                        val addressBeacon = beacon.address
+                        val addressIBeacon = iBeacon.address
+                        val bool = addressBeacon == addressIBeacon
+                        if (bool) {
+                            it.remove()
+                        }
+                    }
                 }
-            }
+                beacons!!.add(iBeacon)
+            }catch (ex:Exception){Log.e("MA","AddBeacon")}
         }
-        beacons!!.add(iBeacon)
     }
 
 
-    fun addDeviceToList(iBeacon: Beacon,list:ArrayList<Beacon>) {
+    private fun addDeviceToList(iBeacon: Beacon, list:ArrayList<Beacon>) {
         if (list.isNotEmpty()) {
             val it: MutableIterator<Beacon> = list.iterator() as MutableIterator<Beacon>
             while (it.hasNext()) {
@@ -162,10 +172,8 @@ class MainActivity : AppCompatActivity() {
         val findMyDev = findViewById<MaterialCardView>(R.id.FMDCard)
         val appleDevCard = findViewById<MaterialCardView>(R.id.AppleDeviceCard)
 
-
-
         textBtn.setOnClickListener {
-            if (Util.checkBluetoothPermission(this.applicationContext)) {
+            if (Util.checkBluetoothPermissionScan(this.applicationContext) && Util.checkBluetoothPermissionConnect(this.applicationContext)) {
                 scanLeDevice()
             }else{
                 checkAllPerms(this, this.applicationContext)
@@ -256,7 +264,9 @@ class MainActivity : AppCompatActivity() {
 
             GlobalScope.launch(Dispatchers.Main) {
                 if (result != null) {
-                    resultToBeacon(result)
+                    GlobalScope.launch(Dispatchers.IO) {
+                        resultToBeacon(result)
+                    }
                     checkType(result)
                 }
             }
@@ -266,12 +276,15 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission", "NewApi")
     private fun checkType(result: ScanResult){
         val baseDev = BaseDevice(result)
 //        val Type = baseDev.deviceType
         val Type = DeviceManager.getDeviceType(result)
-        AddDevToDatabase(result)
+        GlobalScope.launch(Dispatchers.IO) {
+            AddDevToDatabase(result)
+        }
 
         when (Type) {
                 DeviceType.AIRPODS -> {
@@ -432,41 +445,51 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("NewApi", "MissingPermission")
     private fun AddDevToDatabase(result: ScanResult){
-        val ind = beacons!!.indexOf(resultToBeacon(result))
-        val mac = beacons!![ind].serialNumber.replace(":","")
         //Edit this to false and add ! this in final version
-        if (!db?.CheckIsDataAlreadyInDBorNot("devices_table","SerialNumber",mac)!!) {
+        try {
+            val ind = beacons!!.indexOf(resultToBeacon(result))
+            val mac = beacons!![ind].address.replace(":","")
+            if (!db?.CheckIsDataAlreadyInDBorNot("devices_table", "SerialNumber", mac)!!) {
 
-            if (!result.device.name.isNullOrEmpty()) {
-                val dev = BaseDevice(result)
-                db!!.addDevice(
-                    result.device?.name.toString(),
-                    result.device.address.replace(":",""),
-                    result.rssi.toFloat(),
-                    dev.firstDiscovery.second.toString(),
-                    dev.lastSeen.second.toString(),
-                    dev.uniqueId!!,
-                    dev.deviceType!!
-                )
+                if (!result.device.name.isNullOrEmpty()) {
+                    val dev = BaseDevice(result)
+                    db!!.addDevice(
+                        result.device?.name.toString(),
+                        result.device.address.replace(":", ""),
+                        result.rssi.toFloat(),
+                        dev.firstDiscovery.second.toString(),
+                        dev.lastSeen.second.toString(),
+                        dev.uniqueId!!,
+                        dev.deviceType!!
+                    )
 
-            } else {
-                for (i in 0 until beacons!!.size+1) {
-                    Name = "Device $i"
+                } else {
+                    for (i in 0 until beacons!!.size + 1) {
+                        Name = "Device $i"
+
+                    }
+                    val dev = BaseDevice(result)
+                    db!!.addDevice(
+                        Name!!,
+                        result.device.address.replace(":", ""),
+                        result.rssi.toFloat(),
+                        dev.firstDiscovery.second.toString(),
+                        dev.lastSeen.second.toString(),
+                        dev.uniqueId!!,
+                        dev.deviceType!!
+                    )
 
                 }
-                val dev = BaseDevice(result)
-                db!!.addDevice(
-                    Name!!,
-                    result.device.address.replace(":",""),
-                    result.rssi.toFloat(),
-                    dev.firstDiscovery.second.toString(),
-                    dev.lastSeen.second.toString(),
-                    dev.uniqueId!!,
-                    dev.deviceType!!
-                )
+            } else {
+//            db?.readableDatabase?.isOpen
+                if (result.device.name.isNullOrEmpty())
+                    db?.updateLastSeen("devices_table",Name!!, BaseDevice(result).lastSeen.second.toString())
+                else
+                    db?.updateLastSeen("devices_table", result.device.name, BaseDevice(result).lastSeen.second.toString())
 
+                Log.e("MADataBase", "Exist in DB")
             }
-        }
+        } catch (ex: Exception){ Log.e("DBEx",ex.message.toString())}
 
     }
 

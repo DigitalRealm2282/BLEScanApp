@@ -5,7 +5,11 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteException
 import android.database.sqlite.SQLiteOpenHelper
+import android.database.sqlite.SQLiteStatement
+import android.util.Log
+import androidx.room.RoomMasterTable
 import com.ats.airflagger.util.types.Beacon
 
 
@@ -16,7 +20,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
     override fun onCreate(db: SQLiteDatabase) {
         // below is a sqlite query, where column names
         // along with their data types is given
-        val query = ("CREATE TABLE " + TABLE_NAME + " ("
+        val query = ("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " ("
                 + ID_COL + " INTEGER PRIMARY KEY, " +
                 NAME_COl + " TEXT," +
                 SERIALKEY + " TEXT," +
@@ -24,25 +28,30 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
                 FSEENKEY + " TEXT, " +
                 LSEENKEY + " TEXT, " +
                 UIDKEY + " TEXT, " +
-                TYPEKEY + " TEXT )")
+                TYPEKEY + " TEXT "+ ");")
 
         // we are calling sqlite
         // method for executing our query
         db.execSQL(query)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, p1: Int, p2: Int) {
-        // this method is to check if table already exists
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME)
-        onCreate(db)
+    override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
+        TODO("Not yet implemented")
     }
+
+//    override fun onUpgrade(db: SQLiteDatabase, p1: Int, p2: Int) {
+//        // this method is to check if table already exists
+//        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME)
+//        onCreate(db)
+//    }
 
     fun CheckIsDataAlreadyInDBorNot(
         TableName: String,
         dbfield: String, fieldValue: String
     ): Boolean {
+
         val sqldb: SQLiteDatabase = this.readableDatabase
-        val Query = "Select * from $TableName where $dbfield = $fieldValue"
+        val Query = "Select * from $TableName where $dbfield = '$fieldValue'"
         val cursor = sqldb.rawQuery(Query, null)
         if (cursor.count <= 0) {
             cursor.close()
@@ -50,6 +59,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         }
         cursor.close()
         return true
+
     }
 
 //    fun Exists(searchItem: String): Boolean {
@@ -124,7 +134,8 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
 
         // at last we are
         // closing our database
-        db.close()
+
+//        db.close()
     }
 
     // below is the method for updating our courses
@@ -150,31 +161,37 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         db.close()
     }
 
+    // below is the method for updating our courses
+    fun updateLastSeen(
+        originalCourseName: String,name: String,LS:String?
+    ) {
 
-    // below method is to get
-    // all data from our database
-    fun getName(): Cursor? {
+        // calling a method to get writable database.
+        val db = this.writableDatabase
+        val values = ContentValues()
 
-        // here we are creating a readable
-        // variable of our database
-        // as we want to read value from it
-        val db = this.readableDatabase
+        // on below line we are passing all values
+        // along with its key and value pair.
+//        values.put(NAME_COl, name)
+//        values.put(SERIALKEY, Serial)
+//        values.put(SIGNALKEY,Rssi)
+//        values.put(FSEENKEY,FS)
+        values.put(LSEENKEY,LS)
 
-        // below code returns a cursor to
-        // read data from the database
-        return db.rawQuery("SELECT * FROM $TABLE_NAME", null)
-
+        // on below line we are calling a update method to update our database and passing our values.
+        // and we are comparing it with name of our course which is stored in original name variable.
+        db.update(TABLE_NAME, values, "name = '$name'", arrayOf(originalCourseName))
+        db.close()
     }
 
 
     @SuppressLint("Range")
-    fun getSpecificType(type: DeviceType): MutableList<Beacon>? {
+    fun getSpecificType(type: DeviceType): ArrayList<Beacon>? {
         val typeName = type.name
         val sqldb: SQLiteDatabase = this.readableDatabase
-        val Query = "Select * from $TABLE_NAME where $TYPEKEY = $typeName"
+        val Query = "Select * from $TABLE_NAME where $TYPEKEY = '$typeName'"
         val cursor = sqldb.rawQuery(Query, null)
-        val data: MutableList<Beacon>? = null
-
+        val data: ArrayList<Beacon>? = null
         if (cursor.moveToFirst()) {
             do {
 
@@ -186,7 +203,7 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
                 val uid = cursor.getString(cursor.getColumnIndex(UIDKEY))
                 val type = cursor.getString(cursor.getColumnIndex(TYPEKEY))
                 val dev:DeviceType = when (type) {
-                    "IPhone" -> DeviceType.APPLE
+                    "IPhone" -> DeviceType.IPhone
                     "UNKNOWN" -> DeviceType.UNKNOWN
                     "AIRPODS" -> DeviceType.AIRPODS
                     "AIRTAG" -> DeviceType.AIRTAG
@@ -195,16 +212,17 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
                     "FIND_MY" -> DeviceType.FIND_MY
                     else -> DeviceType.UNKNOWN
                 }
-
+                Log.d("SQL",name!!+add!!+rssi.toString()+uid!!+dev+fs!!+ls!!)
+//                val beacon = Beacon(name!!,add!!,rssi.toString(),uid!!,dev,fs!!,ls!!)
                 data?.add(Beacon(name!!,add!!,rssi.toString(),uid!!,dev,fs!!,ls!!))
-//                data.add(Beacon())
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
+//            return data
         }
         cursor.close()
         return data
-
     }
+
 
     @SuppressLint("Range")
     fun getAllDetail(): MutableList<Beacon?>? {
@@ -233,50 +251,13 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
                     else -> DeviceType.UNKNOWN
                 }
 
-
-
                 data?.add(Beacon(name!!,add!!,rssi.toString(),uid!!,dev,fs!!,ls!!))
-//                data.add(Beacon())
                 // get the data into array, or class variable
             } while (cursor.moveToNext())
         }
         cursor.close()
         return data
     }
-
-
-    @SuppressLint("Range")
-    fun getDev(beacon:Beacon): MutableList<String?>? {
-        val deviceUID = beacon.uuids
-        val selectQuery = "SELECT * FROM $TABLE_NAME WHERE $UIDKEY = $deviceUID "
-        val db: SQLiteDatabase = this.readableDatabase
-        val cursor = db.rawQuery(selectQuery, null)
-        val data: MutableList<String?>? = null
-        if (cursor.moveToFirst()) {
-            do {
-
-                val name = cursor.getString(cursor.getColumnIndex(NAME_COl))
-                val add = cursor.getString(cursor.getColumnIndex(SERIALKEY))
-                val rssi = cursor.getString(cursor.getColumnIndex(SIGNALKEY))
-                val fs = cursor.getString(cursor.getColumnIndex(FSEENKEY))
-                val ls = cursor.getString(cursor.getColumnIndex(LSEENKEY))
-                val uid = cursor.getString(cursor.getColumnIndex(UIDKEY))
-                val type = cursor.getString(cursor.getColumnIndex(TYPEKEY))
-//                val type = cursor.getString(cursor.getColumnIndex(devType.name))
-                val uuid = cursor.getString(cursor.getColumnIndex(UIDKEY))
-//                data.add(0,Beacon(type,)))
-//                data?.add(0,type)
-                data?.add(0,uuid)
-
-                cursor.getColumnIndex("DevType")
-                // get the data into array, or class variable
-            } while (cursor.moveToNext())
-        }
-        cursor.close()
-        return data
-    }
-
-
 
 
     companion object{
@@ -286,18 +267,18 @@ class DBHelper(context: Context, factory: SQLiteDatabase.CursorFactory?) :
         private const val DATABASE_NAME = "BaseDevices"
 
         // below is the variable for database version
-        private const val DATABASE_VERSION = 8
+        private const val DATABASE_VERSION = 2
 
         // below is the variable for table name
         const val TABLE_NAME = "devices_table"
 
         // below is the variable for id column
-        const val ID_COL = "id"
+        const val ID_COL = "rowid"
 
         // below is the variable for name column
         const val NAME_COl = "name"
 
-        // below is the variable for age column
+        // below is the variable for device column
         const val SERIALKEY = "SerialNumber"
 
         const val SIGNALKEY = "rssi"

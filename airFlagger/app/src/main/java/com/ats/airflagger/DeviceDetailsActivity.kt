@@ -6,21 +6,36 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.get
+import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.ats.airflagger.data.DeviceManager
 import com.ats.airflagger.data.DeviceType
+import com.ats.airflagger.data.model.BaseDevice
+import com.ats.airflagger.util.BluetoothConstants
+import com.ats.airflagger.util.BluetoothLeService
 import com.ats.airflagger.util.CustomMarker
 import com.ats.airflagger.util.types.AirPods
 import com.ats.airflagger.util.types.AirTag
+import com.ats.airflagger.viewModel.DeviceDetailVM
 import com.github.mikephil.charting.animation.Easing
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.Description
@@ -52,15 +67,20 @@ class DeviceDetailsActivity : AppCompatActivity() {
     private var name = ""
     private var lineChart:LineChart?=null
     private var mGatt: BluetoothGatt? = null
+    private var play :MaterialButton?=null
     private val devfilters: MutableList<ScanFilter> = ArrayList()
     private var rssi = ""
     private var type = ""
+    private var scanResult:ScanResult?=null
     var sec = 10F
+    lateinit var viewModel: DeviceDetailVM
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_device_details)
 
+        viewModel = ViewModelProvider(this).get(DeviceDetailVM::class.java)
 
         val bundle = intent.extras
         address = bundle!!.getString("address")!!
@@ -87,17 +107,17 @@ class DeviceDetailsActivity : AppCompatActivity() {
     private fun setupUI(address: String?, name: String?) {
         val Address = findViewById<TextView>(R.id.MacAddressTxt)
         Address.text = address
-        val play = findViewById<MaterialButton>(R.id.play)
+        play = findViewById<MaterialButton>(R.id.play)
 
         when (type) {
             DeviceType.AIRTAG.name -> {
-                play.visibility = View.VISIBLE
+                play?.visibility = View.VISIBLE
             }
             DeviceType.AIRPODS.name -> {
-                play.visibility = View.VISIBLE
+                play?.visibility = View.VISIBLE
             }
             else -> {
-                play.visibility = View.GONE
+                play?.visibility = View.GONE
             }
         }
         val ll = findViewById<SwipeRefreshLayout>(R.id.refreshCl)
@@ -109,9 +129,9 @@ class DeviceDetailsActivity : AppCompatActivity() {
             }else{
                 ll.isRefreshing = false
                 Toast.makeText(this@DeviceDetailsActivity,"Already Scanning",Toast.LENGTH_SHORT).show()
-                lineChart!!.notifyDataSetChanged()
-                lineChart!!.lineData.notifyDataChanged()
-                lineChart!!.invalidate()
+                lineChart?.notifyDataSetChanged()
+                lineChart?.lineData?.notifyDataChanged()
+                lineChart?.invalidate()
             }
         }
 
@@ -198,21 +218,69 @@ class DeviceDetailsActivity : AppCompatActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             GlobalScope.launch(Dispatchers.Main) {
-
                 val res = result
                 val btDevice = res!!.device
                 val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
                 // start scan get results callback & if bundle address = address of one of results get its rssi
-                if (btDevice.address == address){
+                if (btDevice.address == address) {
+                    scanResult = result
+
 //                    checkType(result)
                     chartSetup(res.rssi.toFloat())
                     setupRisk(result)
+                    play?.setOnClickListener {
+                        connectToDevice(result.device, result)
+                        val gattServiceIntent = Intent(this@DeviceDetailsActivity, BluetoothLeService::class.java)
+                        LocalBroadcastManager.getInstance(this@DeviceDetailsActivity)
+                            .registerReceiver(gattUpdateReceiver, DeviceManager.gattIntentFilter)
+                        this@DeviceDetailsActivity.bindService(gattServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+                        soundState()
 
-//                    connectToDevice(result.device,result)
+                    }
                 }
 
             }
 
+        }
+
+    }
+
+
+
+    private fun soundState(){
+        lifecycleScope.launch {
+            viewModel.playSoundState.collect {
+                when (it) {
+                    is DeviceDetailVM.ConnectionState.Playing -> {
+//                                    binding.spinnerConnecting.visibility = View.INVISIBLE
+//                                    binding.spinnerPlaying.visibility = View.VISIBLE
+                    }
+
+                    is DeviceDetailVM.ConnectionState.Connecting -> {
+//                                    binding.spinnerConnecting.visibility = View.VISIBLE
+                    }
+
+                    else -> {
+//                                    binding.spinnerConnecting.visibility = View.INVISIBLE
+//                                    binding.spinnerPlaying.visibility = View.INVISIBLE
+                        when (it) {
+                            is DeviceDetailVM.ConnectionState.Error -> {
+//                                            binding.imageError.visibility = View.VISIBLE
+//                                            binding.errorText.visibility = View.VISIBLE
+//                                            binding.errorText.text = it.message
+                            }
+
+                            is DeviceDetailVM.ConnectionState.Success -> {
+//                                            binding.imageSuccess.visibility = View.VISIBLE
+                            }
+
+                            else -> {
+                                Log.e("DDA", "Reached unknown state $it!")
+                            }
+                        }
+                    }
+                }
+            }
         }
 
     }
@@ -507,4 +575,93 @@ class DeviceDetailsActivity : AppCompatActivity() {
     }
 
 
+//    private fun dismissWithDelay() {
+//        Handler(Looper.getMainLooper()).postDelayed({
+//
+//        }, DIALOG_CLOSE_DELAY)
+//    }
+
+    private val gattUpdateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                BluetoothConstants.ACTION_GATT_CONNECTING -> {
+                    viewModel.playSoundState.value = DeviceDetailVM.ConnectionState.Connecting
+                }
+                BluetoothConstants.ACTION_EVENT_RUNNING -> viewModel.playSoundState.value =
+                    DeviceDetailVM.ConnectionState.Playing
+                else -> {
+                    when (intent.action) {
+                        BluetoothConstants.ACTION_GATT_DISCONNECTED -> viewModel.playSoundState.value =
+                            DeviceDetailVM.ConnectionState.Success
+                        BluetoothConstants.ACTION_EVENT_FAILED -> viewModel.playSoundState.value =
+                            DeviceDetailVM.ConnectionState.Error(
+                                FlaggerApplication.getAppContext()
+                                    .getString(R.string.play_sound_error_fail)
+                            )
+                        BluetoothConstants.ACTION_EVENT_COMPLETED -> viewModel.playSoundState.value =
+                            DeviceDetailVM.ConnectionState.Success
+                    }
+//                    dismissWithDelay()
+                }
+            }
+        }
+    }
+
+    private val serviceConnection: ServiceConnection = object : ServiceConnection {
+        @SuppressLint("NewApi")
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val bluetoothService = (service as BluetoothLeService.LocalBinder).getService()
+            if (!bluetoothService.init()) {
+                viewModel.playSoundState.value =
+                    DeviceDetailVM.ConnectionState.Error(getString(R.string.play_sound_error_init))
+            } else {
+                viewModel.playSoundState.value =
+                    DeviceDetailVM.ConnectionState.Connecting
+                if (!bluetoothService.connect(BaseDevice(scanResult!!))) {
+                    DeviceDetailVM.ConnectionState.Error(getString(R.string.play_sound_error_connect))
+                }
+            }
+        }
+
+        override fun onServiceDisconnected(p0: ComponentName?) {
+        }
+    }
+
+
+
+//    @SuppressLint("MissingPermission")
+//    fun connectToDevice(device: BluetoothDevice) {
+//        if (mGatt == null) {
+//            mGatt = device.connectGatt(this, false, gattCallback)
+////            scanLeDevice(false) // will stop after first device detection
+//        }
+//    }
+//    @SuppressLint("MissingPermission")
+//    private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
+//        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+//            Log.i("onConnectionStateChange", "Status: $status")
+//            when (newState) {
+//                BluetoothProfile.STATE_CONNECTED -> {
+//                    Log.i("gattCallback", "STATE_CONNECTED")
+//                    gatt.discoverServices()
+//                }
+//                BluetoothProfile.STATE_DISCONNECTED -> Log.e("gattCallback", "STATE_DISCONNECTED")
+//                else -> Log.e("gattCallback", "STATE_OTHER")
+//            }
+//        }
+//
+//        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+//            val services = gatt.services
+//            Log.i("onServicesDiscovered", services.toString())
+//            gatt.readCharacteristic(services[1].characteristics[0])
+//        }
+//
+//        override fun onCharacteristicRead(
+//            gatt: BluetoothGatt,
+//            characteristic: BluetoothGattCharacteristic, status: Int
+//        ) {
+//            Log.i("onCharacteristicRead", characteristic.toString())
+//            gatt.disconnect()
+//        }
+//    }
 }
