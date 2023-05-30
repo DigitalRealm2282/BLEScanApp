@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
     private val SCAN_PERIOD: Long = 5000
     private var scanning = false
     private val handler = Handler()
+
     private val REQUEST_ENABLE_BLUETOOTH = 1
 //    private val scan_list : ArrayList<ScanResult> = ArrayList()
 //    private val device_list : ArrayList<BluetoothDevice> = ArrayList()
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
     val fmdList:ArrayList<Beacon> = ArrayList()
     val unkList:ArrayList<Beacon> = ArrayList()
 
+    private var lleScanCallback: ScanCallback? = null
 
 
 
@@ -173,7 +175,7 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
         val appleDevCard = findViewById<MaterialCardView>(R.id.AppleDeviceCard)
 
         textBtn.setOnClickListener {
-            if (Util.checkBluetoothPermissionScan(this.applicationContext) && Util.checkBluetoothPermissionConnect(this.applicationContext)) {
+            if (Util.checkBluetoothPermissionScan(this.applicationContext) && Util.checkBluetoothPermissionConnect(this.applicationContext) && !scanning) {
                 scanLeDevice()
             }else{
                 checkAllPerms(this, this.applicationContext)
@@ -245,33 +247,10 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
             //agree
         }else{
             //deny
+
         }
     }
 
-
-    @OptIn(DelicateCoroutinesApi::class)
-    val lleScanCallback = object: ScanCallback() {
-        override fun onScanFailed(errorCode: Int) {
-            super.onScanFailed(errorCode)
-            Log.e("Error", "Scan Failed: $errorCode")
-        }
-
-        override fun onScanResult(callbackType: Int, result: ScanResult?) {
-            super.onScanResult(callbackType, result)
-            val txt = findViewById<TextView>(R.id.text4)
-            GlobalScope.launch(Dispatchers.Main) {
-                if (result != null) {
-                    GlobalScope.launch(Dispatchers.IO) {
-                        resultToBeacon(result)
-                    }
-                    checkType(result)
-
-                }
-            }
-
-        }
-
-    }
 
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -298,8 +277,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                         }
 
                         textAp.text = airPodsList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -316,8 +295,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
 
                         val textAD = findViewById<TextView>(R.id.iphoneTextno)
                         textAD.text = iPhoneList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -333,8 +312,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                         }
                         val textAT = findViewById<TextView>(R.id.atags)
                         textAT.text = airTagList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -352,8 +331,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
 
                         val textFMD = findViewById<TextView>(R.id.findMyDev)
                         textFMD.text = fmdList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -370,8 +349,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                                 }
                         }
                         textTile.text = tileList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -387,8 +366,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                                 }
                         }
                         textADT.text = appleList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
@@ -404,13 +383,14 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                                 }
                         }
                         textund.text = unkList.size.toString()
-                    } catch (ex: ConcurrentModificationException) {
-                        Log.e("MA", "Iterator")
+                    } catch (ex: Exception) {
+                        Log.e("MA", ex.message.toString())
                     }
 
                 }
 
                 else -> {
+                    Log.e("MACheckType", "Detect None")
 
                 }
             }
@@ -532,12 +512,36 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
     @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission")
     private fun scanLeDevice() {
+        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+
+        @OptIn(DelicateCoroutinesApi::class)
+        lleScanCallback = object: ScanCallback() {
+            override fun onScanFailed(errorCode: Int) {
+                super.onScanFailed(errorCode)
+                Log.e("Error", "Scan Failed: $errorCode")
+            }
+
+            override fun onScanResult(callbackType: Int, result: ScanResult?) {
+                super.onScanResult(callbackType, result)
+                val txt = findViewById<TextView>(R.id.text4)
+                GlobalScope.launch(Dispatchers.Main) {
+                    if (result != null) {
+                        GlobalScope.launch(Dispatchers.IO) {
+                            resultToBeacon(result)
+                        }
+                        checkType(result)
+
+                    }
+                }
+
+            }
+
+        }
 
         GlobalScope.launch(Dispatchers.IO) {
             if (!scanning) { // Stops scanning after a pre-defined scan period.
                 handler.postDelayed({
-                    scanning = false
-                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                    stopScan()
 //                    if (scan_list.isNotEmpty()) {
                     Log.i("ScanListMA","Stopped")
 
@@ -545,21 +549,31 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
 //                    }
                 }, SCAN_PERIOD)
                 scanning = true
+
                 val sett = SCAN_MODE_LOW_LATENCY
                 val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
                 m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
                     scanFilters(),
                     settBuilder,
                     lleScanCallback)
+
+
             } else {
-                scanning = false
-                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                stopScan()
 
             }
         }
 
 
 
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopScan(){
+        lleScanCallback = null
+        scanning = false
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        m_bluetoothAdapter = null
     }
 
 
@@ -694,7 +708,7 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
     @SuppressLint("MissingPermission")
     override fun onPause() {
         super.onPause()
-        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        stopScan()
 
         devfilters.clear()
 
@@ -702,8 +716,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
 
     @SuppressLint("MissingPermission")
     override fun onResume() {
-        m_bluetoothAdapter?.bluetoothLeScanner?.startScan(scanFilters(),ScanSettings.Builder().setScanMode(
-            SCAN_MODE_LOW_LATENCY).build(),lleScanCallback)
+
+        scanLeDevice()
 
         super.onResume()
     }
@@ -720,8 +734,8 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
         unkList.clear()
         tileList.clear()
 
-        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-        m_bluetoothAdapter = null
+
+        stopScan()
         db?.close()
 
         devfilters.clear()

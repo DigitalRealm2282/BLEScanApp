@@ -14,6 +14,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.coroutineScope
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -57,43 +59,49 @@ class ListActivity : AppCompatActivity() {
     private lateinit var beacons: ArrayList<Beacon>
     private var db: DBHelper? = null
     var devicesDB: ArrayList<Beacon>? = null
+    private var lleScanCallback:ScanCallback ?=null
 
 
+    @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_list)
 
-        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-
-        db = DBHelper(this, null)
-        setupUI()
         beacons = ArrayList<Beacon>()
-        tx = findViewById<TextView>(R.id.textND)
 
-        val fab = findViewById<ExtendedFloatingActionButton>(R.id.scanFAB)
-        fab.setOnClickListener {
-            if (!scanning) {
-                scanLeDevice()
-                fab.extend()
-//                fab.icon = getDrawable(R.drawable.circle)
-                fab.text = "Scanning"
-            } else {
-                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-                fab.shrink()
-//                fab.icon = getDrawable(R.drawable.circle)
-                fab.text = "Start"
+        GlobalScope.launch(Dispatchers.IO) {
+            m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+            db = DBHelper(this@ListActivity, null)
+        }
 
+        GlobalScope.launch(Dispatchers.Main) {
+            setupUI()
+            displayBeaconsList()
+            tx = findViewById<TextView>(R.id.textND)
+            val fab = findViewById<ExtendedFloatingActionButton>(R.id.scanFAB)
+            fab.setOnClickListener {
+                if (!scanning) {
+                    scanLeDevice()
+                    fab.extend()
+//                fab.icon = getDrawable(R.drawable.circle)
+                    fab.text = "Scanning"
+                } else {
+                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                    fab.shrink()
+//                fab.icon = getDrawable(R.drawable.circle)
+                    fab.text = "Start"
+
+                }
             }
         }
-        //AirTag
-        val ATbluetoothFilter: ScanFilter =
-            ScanFilter.Builder().setManufacturerData(
-                0x4C,
-                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x10).toByte()),
-                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
-            ).build()
-        displayBeaconsList()
+//        //AirTag
+//        val ATbluetoothFilter: ScanFilter =
+//            ScanFilter.Builder().setManufacturerData(
+//                0x4C,
+//                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x10).toByte()),
+//                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
+//            ).build()
         //Two ways to list devices
         // 1st onscan result result to beacon and on scan filters add intent.getstring("category") // tested and get airTags only
         // 2nd search with all devices filters then check type of each device and add them when they match // tested and get rest of devices
@@ -102,25 +110,6 @@ class ListActivity : AppCompatActivity() {
         scanLeDevice()
 
     }
-
-    private fun startUp(): MutableList<ScanFilter> {
-        //AirTag
-        val ATbluetoothFilter: ScanFilter =
-            ScanFilter.Builder().setManufacturerData(
-                0x4C,
-                byteArrayOf((0x12).toByte(), (0x19).toByte(), (0x10).toByte()),
-                byteArrayOf((0xFF).toByte(), (0xFF).toByte(), (0x18).toByte())
-            ).build()
-        if (intent.getStringExtra("Category") == "AirTag")
-            devfilters.add(ATbluetoothFilter)
-        else
-            devfilters
-
-
-
-        return devfilters
-    }
-
 
     @SuppressLint("MissingPermission")
     private fun setupUI() {
@@ -164,49 +153,19 @@ class ListActivity : AppCompatActivity() {
 
 
         val rl = findViewById<SwipeRefreshLayout>(R.id.refreshlayout)
-
         rl.setOnRefreshListener {
             if (!scanning) {
-
                 displayBeaconsList()
                 rl.isRefreshing = false
                 scanLeDevice()
             } else {
-
                 displayBeaconsList()
-//                Toast.makeText(this@ListActivity, "Already Scanning", Toast.LENGTH_SHORT).show()
                 rl.isRefreshing = false
-
                 scanLeDevice()
             }
         }
 
-//        val fab = findViewById<ExtendedFloatingActionButton>(R.id.scanFAB)
-//        fab.setOnClickListener {
-//            if (!scanning) {
-//                scanLeDevice()
-//                fab.extend()
-////                fab.icon = getDrawable(R.drawable.circle)
-//                fab.text = "Scanning"
-//            } else {
-//                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-//                fab.shrink()
-////                fab.icon = getDrawable(R.drawable.circle)
-//                fab.text = "Start"
-//
-//            }
-//        }
     }
-
-    // Device scan callback.
-//    private val leScanCallback: ScanCallback = object : ScanCallback() {
-//        override fun onScanResult(callbackType: Int, result: ScanResult) {
-//            super.onScanResult(callbackType, result)
-//            leDeviceListAdapter.addDevice(result.device)
-//            leDeviceListAdapter.notifyDataSetChanged()
-//        }
-//    }
-
 
     //three ways to list devices
     // 1st onscan result result to beacon and on scan filters add intent.getstring("category") // tested and get airTags only
@@ -216,83 +175,87 @@ class ListActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     private fun scanLeDevice() {
 
-//        scanFilters(intent.getStringExtra("Category")!!)
-//        scanFilters()
-        GlobalScope.launch(Dispatchers.IO) {
-            if (!scanning) { // Stops scanning after a pre-defined scan period.
-                handler.postDelayed({
-                    scanning = false
-                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-                }, SCAN_PERIOD)
+//        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
-                if (intent.getStringExtra("Category") == "AirTag") {
-                    scanning = true
-                    val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
-                    val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
-                    m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
-                        scanFilters(intent.getStringExtra("Category")!!),
-                        settBuilder,
-                        lleScanCallback
-                    )
-                }else{
-                    scanning = true
-                    val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
-                    val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
-                    m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
-                        scanFilters(),
-                        settBuilder,
-                        lleScanCallback
-                    )
-                }
-
-
-
-            } else {
-                scanning = false
-                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        @OptIn(DelicateCoroutinesApi::class)
+        lleScanCallback = object : ScanCallback() {
+            override fun onScanFailed(errorCode: Int) {
+                super.onScanFailed(errorCode)
+                Log.e("Error", "Scan Failed: $errorCode")
 
             }
+            //Two ways to list devices
+            // 1st onscan result result to beacon and on scan filters with FilterCheck add intent.getstring("category") // tested and get airTags only
+            // 2nd search with all devices filters then check type of each device and add them when they match // tested and get rest of devices
+            // 3rd way (Experimental) merge between both of them so we can get all devices
+            @RequiresApi(Build.VERSION_CODES.O)
+            @SuppressLint("MissingPermission")
+            override fun onScanResult(callbackType: Int, result: ScanResult?) {
+                super.onScanResult(callbackType, result)
+                GlobalScope.launch(Dispatchers.Main) {
+                    if (result != null) {
+                        GlobalScope.launch(Dispatchers.IO) {
+                            if (intent.getStringExtra("Category") == "AirTag") {
+                                val Dev = BaseDevice(result)
+//                        checkType(result)
+                                if (DeviceManager.getDeviceType(result)== DeviceType.AIRTAG || Dev.deviceType == DeviceType.AIRTAG)
+                                    checkTypeAndSQL(result, DeviceManager.getDeviceType(result))
+                            }else{
+                                checkType(result)
+                            }
+
+                        }
+                    }
+
+                }
+
+            }
+
+        }
+
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                if (!scanning) { // Stops scanning after a pre-defined scan period.
+                    handler.postDelayed({
+                        stopScan()
+                    }, SCAN_PERIOD)
+
+                    if (intent.getStringExtra("Category") == "AirTag") {
+                        scanning = true
+                        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+                        val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
+                        val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
+                        m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
+                            scanFilters(intent.getStringExtra("Category")!!),
+                            settBuilder,
+                            lleScanCallback
+                        )
+                    } else {
+                        scanning = true
+                        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+                        val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
+                        val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
+                        m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
+                            scanFilters(),
+                            settBuilder,
+                            lleScanCallback
+                        )
+                    }
+
+
+                } else {
+                    stopScan()
+
+                }
+            }catch (ex:Exception){Log.e("ListBLEAdapter",ex.message.toString())}
         }
     }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    val lleScanCallback = object : ScanCallback() {
-        override fun onScanFailed(errorCode: Int) {
-            super.onScanFailed(errorCode)
-            Log.e("Error", "Scan Failed: $errorCode")
-
-        }
-
-
-        //Two ways to list devices
-        // 1st onscan result result to beacon and on scan filters with FilterCheck add intent.getstring("category") // tested and get airTags only
-        // 2nd search with all devices filters then check type of each device and add them when they match // tested and get rest of devices
-        // 3rd way (Experimental) merge between both of them so we can get all devices
-        @RequiresApi(Build.VERSION_CODES.O)
-        @SuppressLint("MissingPermission")
-        override fun onScanResult(callbackType: Int, result: ScanResult?) {
-            super.onScanResult(callbackType, result)
-            GlobalScope.launch(Dispatchers.Main) {
-                if (result != null) {
-                    GlobalScope.launch(Dispatchers.IO) {
-                        if (intent.getStringExtra("Category") == "AirTag") {
-                            val Dev = BaseDevice(result)
-//                        checkType(result)
-                            if (DeviceManager.getDeviceType(result)== DeviceType.AIRTAG || Dev.deviceType == DeviceType.AIRTAG)
-                                checkTypeAndSQL(result, DeviceManager.getDeviceType(result))
-                        }else{
-                            checkType(result)
-                        }
-
-                    }
-                }
-//                val btDevice = result!!.device
-//                val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
-
-            }
-
-        }
-
+    @SuppressLint("MissingPermission")
+    private fun stopScan(){
+        lleScanCallback = null
+        scanning = false
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        m_bluetoothAdapter = null
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -395,7 +358,6 @@ class ListActivity : AppCompatActivity() {
         // Add first Discovery Time and Last Seen
         try {
             if (!result.device.name.isNullOrEmpty()) {
-
                 if (checkMacAddress(result.device.address.toString())) {
                     val iBeacon = Beacon(
                         result.device.name.toString(),
@@ -406,11 +368,7 @@ class ListActivity : AppCompatActivity() {
                         BaseDevice(result).firstDiscovery.second.toString(),
                         BaseDevice(result).lastSeen.second.toString()
                     )
-        //                beacons.add(iBeacon)
-        //                checkLastSeen(iBeacon)
-
                     addBeacon(iBeacon)
-
                 }
             } else {
                 for (i in 0 until beacons.size + 1) {
@@ -427,9 +385,7 @@ class ListActivity : AppCompatActivity() {
                         BaseDevice(result).firstDiscovery.second.toString(),
                         BaseDevice(result).lastSeen.second.toString()
                     )
-        //                beacons.add(iBeacon)
-                    //check if it needs to change catch exception like adding beacon
-        //                checkLastSeen(iBeacon)
+
                     addBeacon(iBeacon)
 
                 }
@@ -613,41 +569,44 @@ class ListActivity : AppCompatActivity() {
     }
 
 
+    @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission", "NewApi")
     private fun checkType(result: ScanResult) {
-        val baseDev = BaseDevice(result)
+        GlobalScope.launch(Dispatchers.IO) {
+            val baseDev = BaseDevice(result)
 //        val Type = baseDev.deviceType
-        val Type = DeviceManager.getDeviceType(result)
+            val Type = DeviceManager.getDeviceType(result)
 
-        if (Type == DeviceType.AIRPODS && intent.getStringExtra("Category") == "AirPods") {
+            if (Type == DeviceType.AIRPODS && intent.getStringExtra("Category") == "AirPods") {
 
-            checkTypeAndSQL(result,Type)
-        } else if (Type == DeviceType.IPhone && intent.getStringExtra("Category") == "IPhone") {
-            checkTypeAndSQL(result,Type)
-
-
-        } else if (Type == DeviceType.AIRTAG && intent.getStringExtra("Category") == "AirTag") {
-            checkTypeAndSQL(result,Type)
+                checkTypeAndSQL(result, Type)
+            } else if (Type == DeviceType.IPhone && intent.getStringExtra("Category") == "IPhone") {
+                checkTypeAndSQL(result, Type)
 
 
-        } else if (Type == DeviceType.FIND_MY && intent.getStringExtra("Category") == "FMD") {
-            checkTypeAndSQL(result,Type)
+            } else if (Type == DeviceType.AIRTAG && intent.getStringExtra("Category") == "AirTag") {
+                checkTypeAndSQL(result, Type)
 
 
-        } else if (Type == DeviceType.TILE && intent.getStringExtra("Category") == "Tile") {
-
-            checkTypeAndSQL(result,Type)
-
-        } else if (Type == DeviceType.APPLE && intent.getStringExtra("Category") == "Apple") {
-
-            checkTypeAndSQL(result,Type)
-
-        } else if (Type == DeviceType.UNKNOWN && intent.getStringExtra("Category") == "UNK") {
-            checkTypeAndSQL(result,Type)
+            } else if (Type == DeviceType.FIND_MY && intent.getStringExtra("Category") == "FMD") {
+                checkTypeAndSQL(result, Type)
 
 
-        } else {
-            Log.e("LA","No Match")
+            } else if (Type == DeviceType.TILE && intent.getStringExtra("Category") == "Tile") {
+
+                checkTypeAndSQL(result, Type)
+
+            } else if (Type == DeviceType.APPLE && intent.getStringExtra("Category") == "Apple") {
+
+                checkTypeAndSQL(result, Type)
+
+            } else if (Type == DeviceType.UNKNOWN && intent.getStringExtra("Category") == "UNK") {
+                checkTypeAndSQL(result, Type)
+
+
+            } else {
+                Log.e("LA", "No Match")
+            }
         }
     }
 
@@ -733,38 +692,25 @@ class ListActivity : AppCompatActivity() {
     @SuppressLint("MissingPermission")
     override fun onPause() {
         super.onPause()
-        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-//        beacons.clear()
-        devfilters.clear()
+        stopScan()
+//        devfilters.clear()
     }
 
     @SuppressLint("MissingPermission")
     override fun onResume() {
-//        beacons.clear()
-
-        m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
-            scanFilters(intent.getStringExtra("Category")!!), ScanSettings.Builder().setScanMode(
-                ScanSettings.SCAN_MODE_LOW_LATENCY
-            ).build(), lleScanCallback
-        )
-
+        scanLeDevice()
         super.onResume()
     }
 
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
         super.onDestroy()
-        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-        m_bluetoothAdapter = null
+
+        stopScan()
         beacons.clear()
         devfilters.clear()
         db?.close()
-//        unregisterReceiver(mReceiver)
     }
 
 }
-
-
-        // Get All devices then Apply Filters and show data by deviceTypes and Manager
-
 
