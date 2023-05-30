@@ -256,18 +256,16 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
             Log.e("Error", "Scan Failed: $errorCode")
         }
 
-
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             val txt = findViewById<TextView>(R.id.text4)
-
-
             GlobalScope.launch(Dispatchers.Main) {
                 if (result != null) {
                     GlobalScope.launch(Dispatchers.IO) {
                         resultToBeacon(result)
                     }
                     checkType(result)
+
                 }
             }
 
@@ -285,8 +283,9 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
         GlobalScope.launch(Dispatchers.IO) {
             AddDevToDatabase(result)
         }
+        if (beacons?.isNotEmpty() == true) {
 
-        when (Type) {
+            when (Type) {
                 DeviceType.AIRPODS -> {
                     try {
                         val textAp = findViewById<TextView>(R.id.APTextno)
@@ -299,7 +298,9 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                         }
 
                         textAp.text = airPodsList.size.toString()
-                    }catch (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -309,13 +310,15 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.IPhone)
                                 if (!iPhoneList.contains(it)) {
                                     iPhoneList.add(it)
-                                    addDeviceToList(it,iPhoneList)
+                                    addDeviceToList(it, iPhoneList)
                                 }
                         }
 
                         val textAD = findViewById<TextView>(R.id.iphoneTextno)
                         textAD.text = iPhoneList.size.toString()
-                    }catch  (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -325,12 +328,14 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.AIRTAG)
                                 if (!airTagList.contains(it)) {
                                     airTagList.add(it)
-                                    addDeviceToList(it,airTagList)
+                                    addDeviceToList(it, airTagList)
                                 }
                         }
                         val textAT = findViewById<TextView>(R.id.atags)
                         textAT.text = airTagList.size.toString()
-                    }catch  (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -340,14 +345,16 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.FIND_MY)
                                 if (!fmdList.contains(it)) {
                                     fmdList.add(it)
-                                    addDeviceToList(it,fmdList)
+                                    addDeviceToList(it, fmdList)
 
                                 }
                         }
 
                         val textFMD = findViewById<TextView>(R.id.findMyDev)
                         textFMD.text = fmdList.size.toString()
-                    }catch  (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -358,12 +365,14 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.TILE)
                                 if (!tileList.contains(it)) {
                                     tileList.add(it)
-                                    addDeviceToList(it,tileList)
+                                    addDeviceToList(it, tileList)
 
                                 }
                         }
                         textTile.text = tileList.size.toString()
-                    }catch (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -374,11 +383,13 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.APPLE)
                                 if (!appleList.contains(it)) {
                                     appleList.add(it)
-                                    addDeviceToList(it,appleList)
+                                    addDeviceToList(it, appleList)
                                 }
                         }
                         textADT.text = appleList.size.toString()
-                    }catch (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
@@ -389,108 +400,132 @@ class MainActivity : AppCompatActivity(),LifecycleOwner {
                             if (it.type == DeviceType.UNKNOWN)
                                 if (!unkList.contains(it)) {
                                     unkList.add(it)
-                                    addDeviceToList(it,unkList)
+                                    addDeviceToList(it, unkList)
                                 }
                         }
                         textund.text = unkList.size.toString()
-                    }catch (ex:ConcurrentModificationException){Log.e("MA","Iterator")}
+                    } catch (ex: ConcurrentModificationException) {
+                        Log.e("MA", "Iterator")
+                    }
 
                 }
 
                 else -> {
 
                 }
+            }
         }
     }
 
-    @SuppressLint("MissingPermission", "NewApi")
-    private fun resultToBeacon(result: ScanResult): Beacon? {
-        // Add first Desc Time and Last Seen
-        var beacon :Beacon ?=null
-        if (!result.device.name.isNullOrEmpty()) {
-
-            val iBeacon = Beacon(
-                result.device.name.toString(),
-                result.device.address.toString(),
-                result.rssi.toString(),
-                result.scanRecord?.serviceUuids.toString(),
-                BaseDevice(result).deviceType!!,
-                BaseDevice(result).firstDiscovery.second.toString(),
-                BaseDevice(result).lastSeen.second.toString()
-            )
-            addBeacon(iBeacon)
-            beacon = iBeacon
-
+    @SuppressLint("MissingPermission")
+    private fun resultToBeacon(result: ScanResult): Beacon {
+        return if (!result.device.name.isNullOrEmpty()) {
+            beaconWithName(result)
         }else{
-            for (i in 0 until beacons!!.size+1) {
-                Name = "Device $i"
-            }
-
-            if ( Name != null && Name != "null") {
-                val iBeacon = Beacon(
-                    Name.toString(),
-                    result.device.address.toString(),
-                    result.rssi.toString(),
-                    result.scanRecord?.serviceUuids.toString(), BaseDevice(result).deviceType!!,
-                    BaseDevice(result).firstDiscovery.second.toString(),
-                    BaseDevice(result).lastSeen.second.toString()
-                )
-                addBeacon(iBeacon)
-                beacon= iBeacon
-
-            }
+            beaconWithout(result)
         }
-        return beacon
     }
 
     @SuppressLint("NewApi", "MissingPermission")
-    private fun AddDevToDatabase(result: ScanResult){
+    private fun beaconWithName(result: ScanResult):Beacon{
+
+        val iBeacon = Beacon(
+            result.device.name.toString(),
+            result.device.address.toString(),
+            result.rssi.toString(),
+            result.scanRecord?.serviceUuids.toString(),
+            BaseDevice(result).deviceType!!,
+            BaseDevice(result).firstDiscovery.second.toString(),
+            BaseDevice(result).lastSeen.second.toString()
+        )
+        addBeacon(iBeacon)
+        return iBeacon
+    }
+    @SuppressLint("NewApi")
+    private fun beaconWithout(result: ScanResult): Beacon {
+        for (i in 0 until beacons!!.size + 1) {
+            Name = "Device $i"
+        }
+
+        val iBeacon = Beacon(
+            Name.toString(),
+            result.device.address.toString(),
+            result.rssi.toString(),
+            result.scanRecord?.serviceUuids.toString(), BaseDevice(result).deviceType!!,
+            BaseDevice(result).firstDiscovery.second.toString(),
+            BaseDevice(result).lastSeen.second.toString()
+        )
+        addBeacon(iBeacon)
+
+        return iBeacon
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    @SuppressLint("NewApi", "MissingPermission")
+    private fun AddDevToDatabase(result: ScanResult) {
         //Edit this to false and add ! this in final version
-        try {
-            val ind = beacons!!.indexOf(resultToBeacon(result))
-            val mac = beacons!![ind].address.replace(":","")
-            if (!db?.CheckIsDataAlreadyInDBorNot("devices_table", "SerialNumber", mac)!!) {
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val ind = beacons!!.indexOf(resultToBeacon(result))
+                if (ind >= 0) {
+                    val mac = beacons!![ind].address.replace(":", "")
+                    if (!db?.CheckIsDataAlreadyInDBorNot("devices_table", "SerialNumber", mac)!!) {
 
-                if (!result.device.name.isNullOrEmpty()) {
-                    val dev = BaseDevice(result)
-                    db!!.addDevice(
-                        result.device?.name.toString(),
-                        result.device.address.replace(":", ""),
-                        result.rssi.toFloat(),
-                        dev.firstDiscovery.second.toString(),
-                        dev.lastSeen.second.toString(),
-                        dev.uniqueId!!,
-                        dev.deviceType!!
-                    )
+                        if (!result.device.name.isNullOrEmpty()) {
+                            val dev = BaseDevice(result)
+                            db!!.addDevice(
+                                result.device?.name.toString(),
+                                result.device.address.replace(":", ""),
+                                result.rssi.toFloat(),
+                                dev.firstDiscovery.second.toString(),
+                                dev.lastSeen.second.toString(),
+                                dev.uniqueId!!,
+                                dev.deviceType!!
+                            )
 
-                } else {
-                    for (i in 0 until beacons!!.size + 1) {
-                        Name = "Device $i"
+                        } else {
+                            for (i in 0 until beacons!!.size + 1) {
+                                Name = "Device $i"
 
-                    }
-                    val dev = BaseDevice(result)
-                    db!!.addDevice(
-                        Name!!,
-                        result.device.address.replace(":", ""),
-                        result.rssi.toFloat(),
-                        dev.firstDiscovery.second.toString(),
-                        dev.lastSeen.second.toString(),
-                        dev.uniqueId!!,
-                        dev.deviceType!!
-                    )
+                            }
+                            val dev = BaseDevice(result)
+                            db!!.addDevice(
+                                Name!!,
+                                result.device.address.replace(":", ""),
+                                result.rssi.toFloat(),
+                                dev.firstDiscovery.second.toString(),
+                                dev.lastSeen.second.toString(),
+                                dev.uniqueId!!,
+                                dev.deviceType!!
+                            )
 
-                }
-            } else {
+                        }
+                    } else {
 //            db?.readableDatabase?.isOpen
-                if (result.device.name.isNullOrEmpty())
-                    db?.updateLastSeen("devices_table",Name!!, BaseDevice(result).lastSeen.second.toString())
-                else
-                    db?.updateLastSeen("devices_table", result.device.name, BaseDevice(result).lastSeen.second.toString())
+                        if (result.device.name.isNullOrEmpty())
+                            db?.updateLastSeen(
+                                "devices_table",
+                                Name!!,
+                                BaseDevice(result).lastSeen.second.toString()
+                            )
+                        else
+                            db?.updateLastSeen(
+                                "devices_table",
+                                result.device.name,
+                                BaseDevice(result).lastSeen.second.toString()
+                            )
 
-                Log.e("MADataBase", "Exist in DB")
+                        Log.e("MADataBase", "Exist in DB")
+                    }
+                } else {
+                    addBeacon(resultToBeacon(result))
+                }
+
+            } catch (ex: Exception) {
+                Log.e("DBEx", ex.message.toString())
             }
-        } catch (ex: Exception){ Log.e("DBEx",ex.message.toString())}
 
+        }
     }
 
 

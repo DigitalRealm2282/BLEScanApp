@@ -30,6 +30,7 @@ import com.ats.airflagger.util.types.FindMy
 import com.ats.airflagger.util.types.IPhoneDevice
 import com.ats.airflagger.util.types.Tile
 import com.ats.airflagger.util.types.Unknown
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.*
 
@@ -58,6 +59,7 @@ class ListActivity : AppCompatActivity() {
     var devicesDB: ArrayList<Beacon>? = null
 
 
+    @SuppressLint("MissingPermission")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_list)
@@ -68,6 +70,22 @@ class ListActivity : AppCompatActivity() {
         setupUI()
         beacons = ArrayList<Beacon>()
         tx = findViewById<TextView>(R.id.textND)
+
+        val fab = findViewById<ExtendedFloatingActionButton>(R.id.scanFAB)
+        fab.setOnClickListener {
+            if (!scanning) {
+                scanLeDevice()
+                fab.extend()
+//                fab.icon = getDrawable(R.drawable.circle)
+                fab.text = "Scanning"
+            } else {
+                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+                fab.shrink()
+//                fab.icon = getDrawable(R.drawable.circle)
+                fab.text = "Start"
+
+            }
+        }
         //AirTag
         val ATbluetoothFilter: ScanFilter =
             ScanFilter.Builder().setManufacturerData(
@@ -156,24 +174,28 @@ class ListActivity : AppCompatActivity() {
             } else {
 
                 displayBeaconsList()
-                Toast.makeText(this@ListActivity, "Already Scanning", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(this@ListActivity, "Already Scanning", Toast.LENGTH_SHORT).show()
                 rl.isRefreshing = false
 
                 scanLeDevice()
             }
         }
 
-        val fab = findViewById<FloatingActionButton>(R.id.scanFAB)
-        fab.setOnClickListener {
-            if (!scanning) {
-                scanLeDevice()
-                Toast.makeText(this@ListActivity, "Scanning", Toast.LENGTH_SHORT).show()
-            } else {
-                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
-                Toast.makeText(this@ListActivity, "Stopped", Toast.LENGTH_SHORT).show()
-
-            }
-        }
+//        val fab = findViewById<ExtendedFloatingActionButton>(R.id.scanFAB)
+//        fab.setOnClickListener {
+//            if (!scanning) {
+//                scanLeDevice()
+//                fab.extend()
+////                fab.icon = getDrawable(R.drawable.circle)
+//                fab.text = "Scanning"
+//            } else {
+//                m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+//                fab.shrink()
+////                fab.icon = getDrawable(R.drawable.circle)
+//                fab.text = "Start"
+//
+//            }
+//        }
     }
 
     // Device scan callback.
@@ -251,8 +273,8 @@ class ListActivity : AppCompatActivity() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             GlobalScope.launch(Dispatchers.Main) {
-                with(Dispatchers.IO) {
-                    if (result != null) {
+                if (result != null) {
+                    GlobalScope.launch(Dispatchers.IO) {
                         if (intent.getStringExtra("Category") == "AirTag") {
                             val Dev = BaseDevice(result)
 //                        checkType(result)
@@ -260,7 +282,6 @@ class ListActivity : AppCompatActivity() {
                                 checkTypeAndSQL(result, DeviceManager.getDeviceType(result))
                         }else{
                             checkType(result)
-
                         }
 
                     }
@@ -274,141 +295,147 @@ class ListActivity : AppCompatActivity() {
 
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission", "NewApi", "NotifyDataSetChanged")
     private fun checkTypeAndSQL(result: ScanResult, type: DeviceType) {
-        when (type.name) {
-            IPhoneDevice.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.IPhone)
-                    checkName(result,type)
+        GlobalScope.launch(Dispatchers.IO) {
+            when (type.name) {
+                IPhoneDevice.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.IPhone)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            AirPods.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.AIRPODS)
-                    checkName(result,type)
+                AirPods.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.AIRPODS)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            AirTag.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.AIRTAG)
-                    checkName(result,type)
+                AirTag.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.AIRTAG)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            AppleDevice.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.APPLE)
-                    checkName(result,type)
+                AppleDevice.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.APPLE)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            FindMy.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.FIND_MY)
-                    checkName(result,type)
+                FindMy.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.FIND_MY)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            Tile.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.TILE)
-                    checkName(result,type)
+                Tile.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.TILE)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            Unknown.deviceType.name -> {
-                try {
-                    devicesDB = db?.getSpecificType(DeviceType.UNKNOWN)
-                    checkName(result,type)
+                Unknown.deviceType.name -> {
+                    try {
+                        devicesDB = db?.getSpecificType(DeviceType.UNKNOWN)
+                        checkName(result, type)
 
-                } catch (ex: SQLiteException) {
-                    Log.e("DataBaseLA", ex.message.toString())
+                    } catch (ex: SQLiteException) {
+                        Log.e("DataBaseLA", ex.message.toString())
 
+                    }
                 }
-            }
 
-            else -> {
-                Log.e("LA", "No Devices in Db")
+                else -> {
+                    Log.e("LA", "No Devices in Db")
+                }
             }
         }
 //        checkName(result,type)
-        if (this.devicesDB?.isNotEmpty() == true)
-            beacons.addAll(this.devicesDB!!)
-        adapter!!.notifyDataSetChanged()
+        GlobalScope.launch(Dispatchers.Main) {
+            if (this@ListActivity.devicesDB?.isNotEmpty() == true)
+                beacons.addAll(this@ListActivity.devicesDB!!)
+            adapter!!.notifyDataSetChanged()
+        }
     }
 
     @SuppressLint("NewApi", "MissingPermission")
     private fun checkName(result: ScanResult, type: DeviceType){
         // Add first Discovery Time and Last Seen
-        if (!result.device.name.isNullOrEmpty()) {
-
-            if (checkMacAddress(result.device.address.toString())) {
-                val iBeacon = Beacon(
-                    result.device.name.toString(),
-                    result.device.address.toString(),
-                    result.rssi.toString(),
-                    result.scanRecord?.serviceUuids.toString(),
-                    type,
-                    BaseDevice(result).firstDiscovery.second.toString(),
-                    BaseDevice(result).lastSeen.second.toString()
-                )
-//                beacons.add(iBeacon)
-//                checkLastSeen(iBeacon)
-
-                addBeacon(iBeacon)
-
-            }
-        } else {
-            for (i in 0 until beacons.size + 1) {
-                Name = "Device $i"
-            }
-
-            if (checkMacAddress(result.device.address.toString()) && Name != null && Name != "null") {
-
-                val iBeacon = Beacon(
-                    Name.toString(),
-                    result.device.address.toString(),
-                    result.rssi.toString(),
-                    result.scanRecord?.serviceUuids.toString(), type,
-                    BaseDevice(result).firstDiscovery.second.toString(),
-                    BaseDevice(result).lastSeen.second.toString()
-                )
-//                beacons.add(iBeacon)
-                //check if it needs to change catch exception like adding beacon
-//                checkLastSeen(iBeacon)
-                addBeacon(iBeacon)
-
-            }
-        }
-
         try {
+            if (!result.device.name.isNullOrEmpty()) {
+
+                if (checkMacAddress(result.device.address.toString())) {
+                    val iBeacon = Beacon(
+                        result.device.name.toString(),
+                        result.device.address.toString(),
+                        result.rssi.toString(),
+                        result.scanRecord?.serviceUuids.toString(),
+                        type,
+                        BaseDevice(result).firstDiscovery.second.toString(),
+                        BaseDevice(result).lastSeen.second.toString()
+                    )
+        //                beacons.add(iBeacon)
+        //                checkLastSeen(iBeacon)
+
+                    addBeacon(iBeacon)
+
+                }
+            } else {
+                for (i in 0 until beacons.size + 1) {
+                    Name = "Device $i"
+                }
+
+                if (checkMacAddress(result.device.address.toString()) && Name != null && Name != "null") {
+
+                    val iBeacon = Beacon(
+                        Name.toString(),
+                        result.device.address.toString(),
+                        result.rssi.toString(),
+                        result.scanRecord?.serviceUuids.toString(), type,
+                        BaseDevice(result).firstDiscovery.second.toString(),
+                        BaseDevice(result).lastSeen.second.toString()
+                    )
+        //                beacons.add(iBeacon)
+                    //check if it needs to change catch exception like adding beacon
+        //                checkLastSeen(iBeacon)
+                    addBeacon(iBeacon)
+
+                }
+            }
+
+
             val myCollection = this.devicesDB
             val iterator = myCollection?.iterator()
             while (iterator?.hasNext() == true) {
@@ -428,9 +455,9 @@ class ListActivity : AppCompatActivity() {
     private fun checkLastSeen(beacon: Beacon) {
         try {
             val mac = beacon.address.replace(":", "")
-                if (db?.CheckIsDataAlreadyInDBorNot("devices_table", "SerialNumber", mac)!!) {
+            if (db?.CheckIsDataAlreadyInDBorNot("devices_table", "SerialNumber", mac)!!) {
                     db?.updateLastSeen("devices_table", beacon.name, beacon.lastSeen.toString())
-                    Toast.makeText(this@ListActivity, "Updated", Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@ListActivity, "Updated", Toast.LENGTH_SHORT).show()
                 }
 
         } catch (ex: Exception) {
@@ -556,19 +583,21 @@ class ListActivity : AppCompatActivity() {
     }
 
     fun addBeacon(iBeacon: Beacon) {
-        if (beacons.isNotEmpty()) {
-            val it: MutableIterator<Beacon> = beacons.iterator() as MutableIterator<Beacon>
-            while (it.hasNext()) {
-                val beacon = it.next()
-                val addressBeacon = beacon.address
-                val addressIBeacon = iBeacon.address
-                val bool = addressBeacon == addressIBeacon
-                if (bool) {
-                    it.remove()
+        try {
+            if (beacons.isNotEmpty()) {
+                val it: MutableIterator<Beacon> = beacons.iterator() as MutableIterator<Beacon>
+                while (it.hasNext()) {
+                    val beacon = it.next()
+                    val addressBeacon = beacon.address
+                    val addressIBeacon = iBeacon.address
+                    val bool = addressBeacon == addressIBeacon
+                    if (bool) {
+                        it.remove()
+                    }
                 }
             }
-        }
-        beacons.add(iBeacon)
+            beacons.add(iBeacon)
+        }catch (ex:ConcurrentModificationException){Log.e("ListActivityAddBeacon",ex.message.toString())}
     }
 
 

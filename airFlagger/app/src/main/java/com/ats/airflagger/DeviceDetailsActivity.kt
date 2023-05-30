@@ -15,15 +15,12 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.get
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -38,10 +35,8 @@ import com.ats.airflagger.util.types.AirTag
 import com.ats.airflagger.viewModel.DeviceDetailVM
 import com.github.mikephil.charting.animation.Easing
 import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.Description
 import com.github.mikephil.charting.components.Legend
 import com.github.mikephil.charting.components.XAxis
-import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
@@ -50,19 +45,19 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
+import kotlin.Exception
 
 
 class DeviceDetailsActivity : AppCompatActivity() {
 
     private var m_bluetoothAdapter: BluetoothAdapter? = null
-//    private val SCAN_PERIOD: Long = 15000
+    private val SCAN_PERIOD: Long = 10000
 
     var entries: MutableList<Entry?>? = ArrayList()
 
     private var scanning = false
     private val handler = Handler()
-    private val scan_list : ArrayList<ScanResult> = ArrayList()
+//    private val scan_list : ArrayList<ScanResult> = ArrayList()
     private var address = ""
     private var name = ""
     private var lineChart:LineChart?=null
@@ -72,7 +67,7 @@ class DeviceDetailsActivity : AppCompatActivity() {
     private var rssi = ""
     private var type = ""
     private var scanResult:ScanResult?=null
-    var sec = 10F
+    var sec = 2F
     lateinit var viewModel: DeviceDetailVM
 
 
@@ -89,18 +84,15 @@ class DeviceDetailsActivity : AppCompatActivity() {
         val uuids = bundle.getString("uuids")
         val serialNumber = bundle.getString("serialNumber")
         type = bundle.getString("Type")!!
-
 //        Toast.makeText(this@DeviceDetailsActivity,type,Toast.LENGTH_SHORT).show()
         lineChart = findViewById(R.id.chart1)
-
         val rssi1 = findViewById<TextView>(R.id.rssiTxt)
-
         rssi1.text = rssi
 //        chart!!.startAnimation()
         m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         setupUI(address,name)
-
         scanLeDevice()
+
     }
 
 
@@ -108,7 +100,6 @@ class DeviceDetailsActivity : AppCompatActivity() {
         val Address = findViewById<TextView>(R.id.MacAddressTxt)
         Address.text = address
         play = findViewById<MaterialButton>(R.id.play)
-
         when (type) {
             DeviceType.AIRTAG.name -> {
                 play?.visibility = View.VISIBLE
@@ -128,7 +119,6 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
             }else{
                 ll.isRefreshing = false
-                Toast.makeText(this@DeviceDetailsActivity,"Already Scanning",Toast.LENGTH_SHORT).show()
                 lineChart?.notifyDataSetChanged()
                 lineChart?.lineData?.notifyDataChanged()
                 lineChart?.invalidate()
@@ -160,10 +150,6 @@ class DeviceDetailsActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        scanLeDevice()
-    }
 
     @OptIn(DelicateCoroutinesApi::class)
     @SuppressLint("MissingPermission")
@@ -171,32 +157,19 @@ class DeviceDetailsActivity : AppCompatActivity() {
 
         GlobalScope.launch(Dispatchers.IO) {
             if (!scanning) { // Stops scanning after a pre-defined scan period.
-//                handler.postDelayed({
-//                    scanning = false
-//                    m_bluetoothAdapter!!.bluetoothLeScanner.stopScan(lleScanCallback)
-//                    if (scan_list.isNotEmpty()) {
-////                        Toast.makeText(
-////                            this@ListActivity,
-////                            "Found: " + scan_list[0].device.name + scan_list[0].device.address,
-////                            Toast.LENGTH_SHORT
-////                        ).show()
-//                        Toast.makeText(this@DeviceDetailsActivity,"Found: " + scan_list.size.toString(), Toast.LENGTH_SHORT).show()
-//                        Log.i("ScanListLA","Found: " + scan_list.size.toString())
-//
-//                    }else{
-//                        Toast.makeText(this@DeviceDetailsActivity,"Empty", Toast.LENGTH_SHORT).show()
-//
-//                    }
-//                }, SCAN_PERIOD)
+                handler.postDelayed({
+                    scanning = false
+                    m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+
+                }, SCAN_PERIOD)
                 scanning = true
                 val sett = ScanSettings.SCAN_MODE_LOW_LATENCY
                 val settBuilder = ScanSettings.Builder().setScanMode(sett).build()
-                m_bluetoothAdapter!!.bluetoothLeScanner.startScan(
+                m_bluetoothAdapter?.bluetoothLeScanner?.startScan(
                     devfilters,
                     settBuilder,
                     lleScanCallback
                 )
-//                DeviceManager.scanFilter
 
             } else {
                 scanning = false
@@ -217,26 +190,48 @@ class DeviceDetailsActivity : AppCompatActivity() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
-            GlobalScope.launch(Dispatchers.Main) {
+            GlobalScope.launch(Dispatchers.IO) {
                 val res = result
                 val btDevice = res!!.device
                 val uuidsFromScan = result.scanRecord?.serviceUuids.toString()
                 // start scan get results callback & if bundle address = address of one of results get its rssi
                 if (btDevice.address == address) {
+                    //Body of your click handler
+                    //Body of your click handler
+//                    val thread = Thread {
+//                        //code to do the HTTP request
+//                    }
+//                    thread.start()
                     scanResult = result
+                    for (i in 0 until 30)
+                        addEntry(result.rssi.toFloat(),i.toFloat())
 
+                    GlobalScope.launch(Dispatchers.Main) {
 //                    checkType(result)
-                    chartSetup(res.rssi.toFloat())
-                    setupRisk(result)
-                    play?.setOnClickListener {
-                        connectToDevice(result.device, result)
-                        val gattServiceIntent = Intent(this@DeviceDetailsActivity, BluetoothLeService::class.java)
-                        LocalBroadcastManager.getInstance(this@DeviceDetailsActivity)
-                            .registerReceiver(gattUpdateReceiver, DeviceManager.gattIntentFilter)
-                        this@DeviceDetailsActivity.bindService(gattServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-                        soundState()
+                        chartSetup(res.rssi.toFloat())
+                        setupRisk(result)
 
+
+                        play?.setOnClickListener {
+                            connectToDevice(result.device, result)
+                            val gattServiceIntent =
+                                Intent(this@DeviceDetailsActivity, BluetoothLeService::class.java)
+                            LocalBroadcastManager.getInstance(this@DeviceDetailsActivity)
+                                .registerReceiver(
+                                    gattUpdateReceiver,
+                                    DeviceManager.gattIntentFilter
+                                )
+                            this@DeviceDetailsActivity.bindService(
+                                gattServiceIntent,
+                                serviceConnection,
+                                Context.BIND_AUTO_CREATE
+                            )
+                            soundState()
+
+                        }
                     }
+
+
                 }
 
             }
@@ -289,17 +284,16 @@ class DeviceDetailsActivity : AppCompatActivity() {
     private fun chartSetup(rss:Float){
 
         val rssi = findViewById<TextView>(R.id.rssiTxt)
-
-//Part2
-
+         //Part2
         with(lineChart) {
-            this?.animateX(1200, Easing.EaseInSine)
+            this?.animateX(1000, Easing.Linear)
             this?.description!!.isEnabled = false
 
             xAxis.setDrawGridLines(false)
             xAxis.position = XAxis.XAxisPosition.BOTTOM
             xAxis.granularity = 1F
-//            xAxis.valueFormatter = MyAxisFormatter()
+           //            xAxis.valueFormatter = MyAxisFormatter()
+
 
             axisRight.isEnabled = false
             extraRightOffset = 30f
@@ -309,67 +303,73 @@ class DeviceDetailsActivity : AppCompatActivity() {
             legend.horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
             legend.textSize = 15F
             legend.form = Legend.LegendForm.LINE
-        }
-//
-//        val listOfSec = listOf<Float>(1F,2F,3F,4F,5F,6F,7F,8F,9F,10F,11F,12F,13F,14F,15F,16F,17F,18F,19F,20F,21F,22F,23F,24F
-//        ,25F,26F,27F,28F,29F,30F)
-        sec.inc()
-        var x = sec+4F
-        entries?.add(Entry(x++,rss))
-//        entries?.add(Entry(x++,rss))
-//        entries?.add(Entry(x++,rss))
+            val markerView = CustomMarker(this@DeviceDetailsActivity, R.layout.marker_view)
+            marker = markerView
+            //Part7
+
+            //Part9
+            this.description.text = "Sec"
+            this.setNoDataText("No Signal Detected")
+
+            //Part10
+            this.xAxis?.spaceMin = 3.5f // As per you requiedment
+            this.xAxis?.spaceMax = 0.1f // As per you requiedment
+            this.animateX(1000, Easing.Linear)
+
+            this.axisRight.isEnabled = false
+            this.xAxis.axisMaximum = 1+0.1f
+
+//Part8
+            this.setTouchEnabled(true)
+            this.setPinchZoom(true)
+            this.setHardwareAccelerationEnabled(true)
+            this.background = getDrawable(R.drawable.gradiant_bg)
 
 
+//            val listOfSec = listOf<Float>(1F,2F,3F,4F,5F,6F,7F,8F,9F,10F,11F,12F,13F,14F,15F,16F,17F,18F,19F,20F,21F,22F,23F,24F
+//                ,25F,26F,27F,28F,29F,30F)
+//            listOfSec.iterator().forEach {
+////                for (i in 0 until 30)
+//                    entries?.add(Entry(it.toFloat(),rss))
+//            }
+            sec.inc()
+            val x = sec++
+//            for (i in 0 until 30)
+//                entries?.add(Entry(i.toFloat(),rss))
+            entries?.add(Entry(x,rss))
+            entries?.add(Entry(x.inc(),rss))
+//        entries?.add(Entry(x++,rss))
 //Part3
-        val vl = LineDataSet(entries, "Signal Strength")
+            try {
+
+
+                val vl = LineDataSet(entries, "Signal Strength")
 
 //        vl.axisDependency = YAxis.AxisDependency.RIGHT
-        vl.color = Color.GREEN
-        vl.mode = LineDataSet.Mode.HORIZONTAL_BEZIER
-        vl.cubicIntensity = 0.5f
+                vl.color = Color.GREEN
+                vl.mode = LineDataSet.Mode.HORIZONTAL_BEZIER
+                vl.cubicIntensity = 0.5f
 //Part4
-        vl.setDrawValues(true)
-        vl.setDrawFilled(true)
-//        vl.enableDashedLine(10f,5f,1f)
-
-//        vl.setDrawHighlightIndicators(true)
-//        vl.isVisible = true
-        vl.lineWidth = 3f
-        vl.fillColor = R.color.green
-        vl.fillAlpha = R.color.risk_high
+                vl.setDrawValues(false)
+                vl.setDrawFilled(false)
+                vl.enableDashedLine(10f, 5f, 1f)
+                vl.setDrawHighlightIndicators(false)
+                vl.isVisible = false
+                vl.lineWidth = 3f
+                vl.fillColor = R.color.green
+                vl.fillAlpha = R.color.risk_high
 
 //Part5
 //        lineChart!!.xAxis.labelRotationAngle = 0f
-
-//Part6
-
-        lineChart!!.data = LineData(vl)
-        lineChart!!.notifyDataSetChanged()
-        lineChart!!.lineData.notifyDataChanged()
-        lineChart!!.invalidate()
-
-//Part7
-        lineChart!!.axisRight.isEnabled = false
-        lineChart!!.xAxis.axisMaximum = 1+0.1f
-
-//Part8
-        lineChart!!.setTouchEnabled(true)
-        lineChart!!.setPinchZoom(true)
-        lineChart!!.background = getDrawable(R.drawable.gradiant_bg)
-
-//Part9
-        lineChart!!.description.text = "Sec"
-        lineChart!!.setNoDataText("No Signal Detected")
-
-//Part10
-        lineChart?.xAxis?.spaceMin = 3.5f // As per you requiedment
-        lineChart?.xAxis?.spaceMax = 0.1f // As per you requiedment
-        lineChart!!.animateX(1800, Easing.EaseInSine)
-
-
-//Part11
-        val markerView = CustomMarker(this@DeviceDetailsActivity, R.layout.marker_view)
-        lineChart!!.marker = markerView
+                data = LineData(vl)
+            }catch (ex:Exception){
+                Log.e("DDA","AIOFBE")
+            }
+//            this.notifyDataSetChanged()
+//            this.lineData.notifyDataChanged()
+//            this.invalidate()
+            //Part11
+        }
 
         if (rss > 80) {
             rssi.setBackgroundResource(0)
@@ -388,6 +388,17 @@ class DeviceDetailsActivity : AppCompatActivity() {
         }
 
         rssi.text = rss.toString()
+    }
+
+    private fun addEntry(rss: Float,xAxis: Float){
+        try {
+            entries?.add(Entry(xAxis, rss))
+            if (entries!!.isNotEmpty() && entries?.size!! >= 2) {
+                entries?.sortedBy { entry -> entry?.x }
+                lineChart?.notifyDataSetChanged()
+                lineChart?.lineData?.notifyDataChanged()
+            }
+        }catch (ex:Exception){Log.e("DDA","AIOOFBE")}
     }
 
 
@@ -664,4 +675,32 @@ class DeviceDetailsActivity : AppCompatActivity() {
 //            gatt.disconnect()
 //        }
 //    }
+
+    @SuppressLint("MissingPermission")
+    override fun onPause() {
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+
+//        devfilters.clear()
+        super.onPause()
+    }
+    @SuppressLint("MissingPermission")
+    override fun onResume() {
+        m_bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+
+        scanLeDevice()
+        super.onResume()
+    }
+    @SuppressLint("MissingPermission")
+    override fun onDestroy() {
+        super.onDestroy()
+//        scan_list.clear()
+
+
+        entries?.clear()
+        m_bluetoothAdapter?.bluetoothLeScanner?.stopScan(lleScanCallback)
+        m_bluetoothAdapter = null
+
+        devfilters.clear()
+//        unregisterReceiver(mReceiver)
+    }
 }
